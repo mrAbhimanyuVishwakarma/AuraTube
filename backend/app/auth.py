@@ -15,7 +15,7 @@ from app.schemas import TokenData
 load_dotenv()
 
 # Constants
-SECRET_KEY = os.getenv("JWT_SECRET_KEY", "your-super-secret-jwt-key-change-in-prod")
+SECRET_KEY = os.getenv("JWT_SECRET_KEY") or os.getenv("auratube-secret-2026") or "your-super-secret-jwt-key-change-in-prod"
 ALGORITHM = "HS256"
 ACCESS_TOKEN_EXPIRE_MINUTES = 60 * 24 * 7 # 7 days token expiration
 

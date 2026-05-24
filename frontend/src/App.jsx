@@ -3,7 +3,6 @@ import { Youtube, Download, CloudLightning, RefreshCw, AlertTriangle, ShieldChec
 import UrlInput from './components/UrlInput';
 import FormatSelector from './components/FormatSelector';
 import PlaylistManager from './components/PlaylistManager';
-import GoogleDriveSetup from './components/GoogleDriveSetup';
 import DownloadDashboard from './components/DownloadDashboard';
 import AuthModal from './components/AuthModal';
 import PricingModal from './components/PricingModal';
@@ -450,13 +449,6 @@ export default function App() {
             />
           )}
 
-          {/* Settings panel */}
-          <GoogleDriveSetup
-            driveStatus={driveStatus}
-            onRefreshStatus={fetchDriveStatus}
-            backendUrl={BACKEND_URL}
-            onConnectDrive={handleConnectDrive}
-          />
         </div>
 
         {/* Right Side: Sidebar with active tasks */}
