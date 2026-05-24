@@ -9,7 +9,8 @@ class User(Base):
 
     id = Column(String, primary_key=True, default=lambda: str(uuid.uuid4()))
     email = Column(String, unique=True, index=True, nullable=False)
-    hashed_password = Column(String, nullable=False)
+    hashed_password = Column(String, nullable=True)  # nullable for Google OAuth users
+    google_id = Column(String, nullable=True, unique=True)  # for Sign in with Google
     is_active = Column(Boolean, default=True)
     is_premium = Column(Boolean, default=False)
     premium_expiry = Column(DateTime, nullable=True)

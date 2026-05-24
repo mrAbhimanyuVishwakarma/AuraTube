@@ -102,15 +102,76 @@ def register_user(req: UserCreate, db: Session = Depends(get_db)):
 def login_user(req: UserLogin, db: Session = Depends(get_db)):
     """Authenticates credentials and returns a JWT access token."""
     user = db.query(User).filter(User.email == req.email).first()
-    if not user or not verify_password(req.password, user.hashed_password):
-        raise HTTPException(
-            status_code=status.HTTP_401_UNAUTHORIZED,
-            detail="Incorrect email or password",
-            headers={"WWW-Authenticate": "Bearer"},
-        )
+    if not user:
+        raise HTTPException(status_code=status.HTTP_401_UNAUTHORIZED, detail="Incorrect email or password", headers={"WWW-Authenticate": "Bearer"})
+    if not user.hashed_password or user.hashed_password == "google-oauth-no-password":
+        raise HTTPException(status_code=400, detail="This account uses Google Sign-In. Please click 'Sign in with Google'.")
+    if not verify_password(req.password, user.hashed_password):
+        raise HTTPException(status_code=status.HTTP_401_UNAUTHORIZED, detail="Incorrect email or password", headers={"WWW-Authenticate": "Bearer"})
     
     access_token = create_access_token(data={"sub": user.email, "user_id": user.id})
     return {"access_token": access_token, "token_type": "bearer"}
+
+@app.post("/api/auth/google", response_model=Token)
+def google_signin(req: dict, db: Session = Depends(get_db)):
+    """
+    Verifies a Google ID token from the frontend.
+    Creates the user account if first time, then returns a JWT.
+    Google Drive is automatically linked since they used Google to sign in.
+    """
+    credential = req.get("credential")
+    if not credential:
+        raise HTTPException(status_code=400, detail="Google credential is required.")
+
+    try:
+        from google.oauth2 import id_token
+        from google.auth.transport import requests as grequests
+        google_client_id = os.environ.get("GOOGLE_CLIENT_ID", "")
+        if not google_client_id:
+            raise HTTPException(status_code=500, detail="Google Client ID not configured on server.")
+
+        # Verify the token with Google
+        id_info = id_token.verify_oauth2_token(
+            credential,
+            grequests.Request(),
+            google_client_id
+        )
+
+        google_id = id_info.get("sub")
+        email = id_info.get("email")
+        name = id_info.get("name", "")
+
+        if not email:
+            raise HTTPException(status_code=400, detail="Could not retrieve email from Google token.")
+
+        # Find or create the user
+        user = db.query(User).filter(User.email == email).first()
+        if not user:
+            # New user via Google — no password needed
+            user = User(
+                email=email,
+                hashed_password="google-oauth-no-password",
+                google_id=google_id,
+                is_active=True,
+            )
+            db.add(user)
+            db.commit()
+            db.refresh(user)
+        else:
+            # Existing user — update google_id if not set
+            if not user.google_id:
+                user.google_id = google_id
+                db.commit()
+
+        access_token = create_access_token(data={"sub": user.email, "user_id": user.id})
+        return {"access_token": access_token, "token_type": "bearer"}
+
+    except ValueError as e:
+        raise HTTPException(status_code=401, detail=f"Invalid Google token: {str(e)}")
+    except HTTPException:
+        raise
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=f"Google sign-in error: {str(e)}")
 
 @app.get("/api/auth/me", response_model=UserResponse)
 def get_user_profile(user: User = Depends(get_current_user)):
