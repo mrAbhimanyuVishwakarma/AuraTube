@@ -9,7 +9,7 @@ import AuthModal from './components/AuthModal';
 import PricingModal from './components/PricingModal';
 import FaqModal from './components/FaqModal';
 
-const BACKEND_URL = 'http://127.0.0.1:8000';
+const BACKEND_URL = import.meta.env.VITE_BACKEND_URL || 'http://127.0.0.1:8000';
 
 const formatStorage = (bytesStr) => {
   if (!bytesStr) return '∞';
