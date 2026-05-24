@@ -9,12 +9,12 @@ from fastapi.middleware.cors import CORSMiddleware
 from sqlalchemy.orm import Session
 from typing import List, Optional
 
-from app.config import load_settings, save_settings, AppSettings, CACHE_DIR, CLIENT_SECRETS_FILE, TOKEN_FILE, ensure_client_secrets
+from app.config import load_settings, save_settings, AppSettings, CACHE_DIR, CLIENT_SECRETS_FILE, ensure_client_secrets
 from app.downloader import get_video_info, download_video
 from app.drive_uploader import (
     get_auth_url,
     handle_oauth_callback,
-    get_credentials,
+    fetch_drive_info,
     upload_to_drive
 )
 
@@ -149,7 +149,7 @@ def format_size(num_bytes):
         num_bytes /= 1024.0
     return f"{num_bytes:.2f} TB"
 
-async def run_download_task(task_id: str, req: DownloadRequest):
+async def run_download_task(task_id: str, req: DownloadRequest, user_drive_token: str = None, db_session_factory=None):
     """Background task to download and optionally upload to Drive."""
     task = active_downloads[task_id]
     
@@ -196,12 +196,20 @@ async def run_download_task(task_id: str, req: DownloadRequest):
                 task["speed"] = "Uploading..."
                 task["eta"] = f"{progress_pct}%"
 
-            drive_link, drive_id = await loop.run_in_executor(
-                None,
-                upload_to_drive,
-                local_filepath,
-                upload_hook
-            )
+            from functools import partial
+            upload_fn = partial(upload_to_drive, local_filepath, user_drive_token, upload_hook)
+            drive_link, drive_id, refreshed_token = await loop.run_in_executor(None, upload_fn)
+            # Update the token in DB if it was refreshed
+            if refreshed_token and db_session_factory and task.get('user_id'):
+                try:
+                    from app.database import SessionLocal
+                    with SessionLocal() as db:
+                        u = db.query(User).filter(User.id == task['user_id']).first()
+                        if u:
+                            u.google_drive_token = refreshed_token
+                            db.commit()
+                except Exception:
+                    pass
             
             try:
                 if os.path.exists(local_filepath):
@@ -336,6 +344,8 @@ def start_download(
                 detail="Free users can only download one video at a time. Upgrade to Premium for bulk/playlist support."
             )
 
+    user_drive_token = user.google_drive_token if (user and req.target == 'drive') else None
+
     active_downloads[task_id] = {
         "id": task_id,
         "title": req.title,
@@ -351,8 +361,8 @@ def start_download(
         "ip": client_ip,
         "user_id": user.id if user else None
     }
-    
-    background_tasks.add_task(run_download_task, task_id, req)
+
+    background_tasks.add_task(run_download_task, task_id, req, user_drive_token)
     return {"task_id": task_id, "status": "queued"}
 
 @app.get("/api/progress")
@@ -401,69 +411,72 @@ def update_settings(req: SettingsRequest):
     except Exception as e:
         raise HTTPException(status_code=500, detail=str(e))
 
-# --- Google Drive Authentication Endpoints ---
+# --- Google Drive Authentication Endpoints (Per-User) ---
 
 @app.get("/api/drive/status")
-def check_drive_status():
+def check_drive_status(user: Optional[User] = Depends(get_optional_current_user)):
+    """Returns the current user's Google Drive connection status."""
     has_client_secrets = CLIENT_SECRETS_FILE.exists()
-    
-    creds = get_credentials()
-    is_connected = creds is not None and not creds.expired
-    
-    email = None
-    storage_limit = None
-    if is_connected:
-        try:
-            from googleapiclient.discovery import build
-            service = build('drive', 'v3', credentials=creds)
-            about = service.about().get(fields="user(emailAddress), storageQuota").execute()
-            email = about.get('user', {}).get('emailAddress')
-            quota = about.get('storageQuota', {})
-            storage_limit = quota.get('limit')
-        except Exception:
-            pass
 
+    if not user or not user.google_drive_token:
+        return {
+            "is_configured": has_client_secrets,
+            "is_connected": False,
+            "email": None,
+            "storage_limit": None
+        }
+
+    # Use cached Drive info if available
     return {
         "is_configured": has_client_secrets,
-        "is_connected": is_connected,
-        "email": email,
-        "storage_limit": storage_limit
+        "is_connected": True,
+        "email": user.google_drive_email,
+        "storage_limit": user.google_drive_storage_limit
     }
 
 @app.get("/api/drive/auth-url")
-def get_drive_auth_url():
+def get_drive_auth_url(user: User = Depends(get_current_user)):
+    """Generates a Google OAuth URL. User must be logged in."""
     try:
-        url, _ = get_auth_url()
+        url, _ = get_auth_url(state=user.id)
         return {"url": url}
     except Exception as e:
         raise HTTPException(status_code=400, detail=str(e))
 
 @app.get("/api/drive/callback", response_class=HTMLResponse)
-def drive_oauth_callback(request: Request):
+def drive_oauth_callback(request: Request, db: Session = Depends(get_db)):
+    """Receives Google OAuth callback, saves token to the user's DB record."""
     try:
         full_url = str(request.url)
-        if "https://" in full_url and "localhost" in full_url:
-            full_url = full_url.replace("https://", "http://")
-            
-        handle_oauth_callback(full_url)
-        
+        # Extract state (user_id) from the query params
+        state = request.query_params.get("state", "")
+
+        token_json = handle_oauth_callback(full_url)
+
+        # Save the token to the user's record in DB
+        if state:
+            user = db.query(User).filter(User.id == state).first()
+            if user:
+                user.google_drive_token = token_json
+                # Fetch and cache Drive info
+                drive_email, storage_limit = fetch_drive_info(token_json)
+                user.google_drive_email = drive_email
+                user.google_drive_storage_limit = storage_limit
+                db.commit()
+
         return """
         <html>
             <body style="font-family: sans-serif; background-color: #0f0c1b; color: white; display: flex; align-items: center; justify-content: center; height: 100vh; margin: 0;">
                 <div style="text-align: center; background: rgba(255,255,255,0.05); padding: 2.5rem; border-radius: 12px; border: 1px solid rgba(255,255,255,0.1); box-shadow: 0 8px 32px 0 rgba(0, 0, 0, 0.37);">
-                    <h2 style="color: #a78bfa; margin-top: 0;">Google Account Connected!</h2>
-                    <p style="color: #94a3b8; font-size: 0.95rem;">Authentication completed successfully. You can close this tab now.</p>
-                    <button onclick="window.close()" style="background: linear-gradient(135deg, #6366f1, #a855f7); color: white; border: none; padding: 0.75rem 1.5rem; border-radius: 6px; font-weight: 600; cursor: pointer; margin-top: 1rem; box-shadow: 0 4px 12px rgba(168, 85, 247, 0.3);">
+                    <h2 style="color: #f97316; margin-top: 0;">Google Drive Connected! ✅</h2>
+                    <p style="color: #94a3b8; font-size: 0.95rem;">Your Google Drive is now linked. You can close this tab.</p>
+                    <button onclick="window.close()" style="background: linear-gradient(135deg, #f97316, #ea580c); color: white; border: none; padding: 0.75rem 1.5rem; border-radius: 6px; font-weight: 600; cursor: pointer; margin-top: 1rem;">
                         Close Window
                     </button>
                 </div>
                 <script>
-                    try {
-                        window.opener.postMessage("oauth-success", "*");
-                        setTimeout(function() { window.close(); }, 1500);
-                    } catch (e) {
-                        console.error(e);
-                    }
+                    try { window.opener.postMessage("oauth-success", "*"); } catch(e) {}
+                    setTimeout(function() { window.close(); }, 1500);
                 </script>
             </body>
         </html>
@@ -472,22 +485,20 @@ def drive_oauth_callback(request: Request):
         return f"""
         <html>
             <body style="font-family: sans-serif; background-color: #0f0c1b; color: white; display: flex; align-items: center; justify-content: center; height: 100vh; margin: 0;">
-                <div style="text-align: center; background: rgba(255,255,255,0.05); padding: 2.5rem; border-radius: 12px; border: 1px solid rgba(239,68,68,0.2); box-shadow: 0 8px 32px 0 rgba(0, 0, 0, 0.37);">
-                    <h2 style="color: #ef4444; margin-top: 0;">Authentication Failed</h2>
-                    <p style="color: #94a3b8; font-size: 0.95rem; max-width: 400px; line-height: 1.5;">Error exchanging oauth token: {str(e)}</p>
-                    <button onclick="window.close()" style="background: #334155; color: white; border: none; padding: 0.75rem 1.5rem; border-radius: 6px; font-weight: 600; cursor: pointer; margin-top: 1rem;">
-                        Close Window
-                    </button>
+                <div style="text-align: center; padding: 2.5rem; border-radius: 12px;">
+                    <h2 style="color: #ef4444;">Authentication Failed</h2>
+                    <p style="color: #94a3b8;">{str(e)}</p>
+                    <button onclick="window.close()" style="background: #334155; color: white; border: none; padding: 0.75rem 1.5rem; border-radius: 6px; cursor: pointer;">Close</button>
                 </div>
             </body>
         </html>
         """
 
 @app.post("/api/drive/disconnect")
-def disconnect_drive():
-    try:
-        if TOKEN_FILE.exists():
-            os.remove(TOKEN_FILE)
-        return {"status": "success", "message": "Disconnected Google Drive"}
-    except Exception as e:
-        raise HTTPException(status_code=500, detail=str(e))
+def disconnect_drive(user: User = Depends(get_current_user), db: Session = Depends(get_db)):
+    """Removes the current user's Google Drive token from DB."""
+    user.google_drive_token = None
+    user.google_drive_email = None
+    user.google_drive_storage_limit = None
+    db.commit()
+    return {"status": "success", "message": "Google Drive disconnected"}
