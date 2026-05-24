@@ -9,7 +9,7 @@ from fastapi.middleware.cors import CORSMiddleware
 from sqlalchemy.orm import Session
 from typing import List, Optional
 
-from app.config import load_settings, save_settings, AppSettings, CACHE_DIR
+from app.config import load_settings, save_settings, AppSettings, CACHE_DIR, CLIENT_SECRETS_FILE, TOKEN_FILE
 from app.downloader import get_video_info, download_video
 from app.drive_uploader import (
     get_auth_url,
@@ -36,10 +36,15 @@ Base.metadata.create_all(bind=engine)
 
 app = FastAPI(title="AuraTube SaaS - Video Downloader & Uploader")
 
-# Enable CORS
+# Enable CORS - allow Vercel frontend and local dev
+ALLOW_ORIGINS = os.environ.get(
+    "ALLOWED_ORIGINS",
+    "http://localhost:5173,http://localhost:3000"
+).split(",")
+
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=["*"],
+    allow_origins=["*"],  # Open for now; restrict to ALLOW_ORIGINS in production
     allow_credentials=True,
     allow_methods=["*"],
     allow_headers=["*"],
