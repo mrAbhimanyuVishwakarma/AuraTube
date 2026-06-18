@@ -1,81 +1,95 @@
 import os
+import json
 import mimetypes
 from google.auth.transport.requests import Request
 from google.oauth2.credentials import Credentials
 from google_auth_oauthlib.flow import Flow
 from googleapiclient.discovery import build
 from googleapiclient.http import MediaFileUpload
-from app.config import CLIENT_SECRETS_FILE, TOKEN_FILE, load_settings
+from app.config import CLIENT_SECRETS_FILE, load_settings
 
 SCOPES = ['https://www.googleapis.com/auth/drive.file']
 
-def get_credentials():
-    """Gets valid user credentials from storage."""
-    creds = None
-    if TOKEN_FILE.exists():
-        try:
-            creds = Credentials.from_authorized_user_file(str(TOKEN_FILE), SCOPES)
-        except Exception:
-            pass
 
-    # If there are no (valid) credentials available, let the user log in.
-    if creds and creds.expired and creds.refresh_token:
-        try:
+def _get_redirect_uri():
+    """Returns the correct redirect URI based on environment."""
+    backend_url = os.environ.get("BACKEND_URL", "").rstrip("/")
+    if backend_url:
+        return f"{backend_url}/api/drive/callback"
+    settings = load_settings()
+    return f"http://localhost:{settings.port}/api/drive/callback"
+
+
+def get_credentials_from_token_json(token_json: str):
+    """Builds Credentials from a stored JSON string (per-user token)."""
+    try:
+        creds = Credentials.from_authorized_user_info(json.loads(token_json), SCOPES)
+        if creds.expired and creds.refresh_token:
             creds.refresh(Request())
-            # Save the refreshed credentials
-            with open(TOKEN_FILE, 'w') as token:
-                token.write(creds.to_json())
-        except Exception:
-            creds = None
+        return creds, creds.to_json()  # Return refreshed token too
+    except Exception:
+        return None, None
 
-    return creds
 
-def get_auth_url():
-    """Generates Google authorization URL."""
+def get_auth_url(state: str = None):
+    """Generates Google authorization URL with optional state for user tracking."""
     if not CLIENT_SECRETS_FILE.exists():
-        raise Exception("Google Client Credentials are not configured yet. Please configure them in Settings.")
-    
-    settings = load_settings()
-    backend_url = os.getenv("BACKEND_URL", f"http://localhost:{settings.port}").rstrip("/")
-    redirect_uri = f"{backend_url}/api/drive/callback"
-    
-    flow = Flow.from_client_secrets_file(
-        str(CLIENT_SECRETS_FILE),
-        scopes=SCOPES,
-        redirect_uri=redirect_uri
-    )
-    
-    auth_url, state = flow.authorization_url(
-        access_type='offline',
-        include_granted_scopes='true',
-        prompt='consent'
-    )
-    return auth_url, state
+        raise Exception("Google Client Credentials are not configured on the server.")
 
-def handle_oauth_callback(authorization_response_url):
-    """Processes authorization code and saves tokens."""
-    settings = load_settings()
-    backend_url = os.getenv("BACKEND_URL", f"http://localhost:{settings.port}").rstrip("/")
-    redirect_uri = f"{backend_url}/api/drive/callback"
-    
     flow = Flow.from_client_secrets_file(
         str(CLIENT_SECRETS_FILE),
         scopes=SCOPES,
-        redirect_uri=redirect_uri
+        redirect_uri=_get_redirect_uri()
+    )
+
+    kwargs = {
+        'access_type': 'offline',
+        'include_granted_scopes': 'true',
+        'prompt': 'consent'
+    }
+    if state:
+        kwargs['state'] = state
+
+    auth_url, flow_state = flow.authorization_url(**kwargs)
+    return auth_url, flow_state
+
+
+def handle_oauth_callback(authorization_response_url: str):
+    """
+    Processes authorization code from Google.
+    Returns token JSON string — do NOT save to a file, store in DB per user.
+    """
+    flow = Flow.from_client_secrets_file(
+        str(CLIENT_SECRETS_FILE),
+        scopes=SCOPES,
+        redirect_uri=_get_redirect_uri()
     )
     flow.fetch_token(authorization_response=authorization_response_url)
-    
     creds = flow.credentials
-    with open(TOKEN_FILE, 'w') as token:
-        token.write(creds.to_json())
-    return creds
+    return creds.to_json()  # Return as string to store in DB
 
-def upload_to_drive(file_path, on_progress_callback=None):
-    """Uploads a file to Google Drive in chunks, tracking progress."""
-    creds = get_credentials()
+
+def fetch_drive_info(token_json: str):
+    """Fetches the user's Drive email and storage quota from Google."""
+    creds, _ = get_credentials_from_token_json(token_json)
     if not creds:
-        raise Exception("Google Drive not authorized. Please connect your Google account.")
-    
+        return None, None
+    try:
+        service = build('drive', 'v3', credentials=creds)
+        about = service.about().get(fields="user(emailAddress), storageQuota").execute()
+        email = about.get('user', {}).get('emailAddress')
+        storage_limit = about.get('storageQuota', {}).get('limit')
+        return email, storage_limit
+    except Exception:
+        return None, None
+
+
+def upload_to_drive(file_path, token_json: str, on_progress_callback=None):
+    """Uploads a file to Google Drive using the user's stored token."""
+    creds, refreshed_token = get_credentials_from_token_json(token_json)
+    if not creds:
+        raise Exception("Google Drive not authorized. Please reconnect your Google account.")
+
     service = build('drive', 'v3', credentials=creds)
     file_name = os.path.basename(file_path)
     mime_type, _ = mimetypes.guess_type(file_path)
@@ -83,26 +97,23 @@ def upload_to_drive(file_path, on_progress_callback=None):
         mime_type = 'application/octet-stream'
 
     file_metadata = {'name': file_name}
-    
-    # Create resumable upload
     media = MediaFileUpload(
-        file_path, 
-        mimetype=mime_type, 
-        resumable=True, 
-        chunksize=1024 * 1024  # 1MB chunk size
+        file_path,
+        mimetype=mime_type,
+        resumable=True,
+        chunksize=1024 * 1024
     )
-    
+
     request = service.files().create(
         body=file_metadata,
         media_body=media,
         fields='id, webViewLink'
     )
-    
+
     response = None
     while response is None:
         status, response = request.next_chunk()
         if status and on_progress_callback:
-            progress = int(status.progress() * 100)
-            on_progress_callback(progress)
-            
-    return response.get('webViewLink'), response.get('id')
+            on_progress_callback(int(status.progress() * 100))
+
+    return response.get('webViewLink'), response.get('id'), refreshed_token
