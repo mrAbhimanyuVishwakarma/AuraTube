@@ -134,3 +134,7 @@ To enable direct-to-Drive downloads:
 2. Enable Google Drive API and set up the OAuth Consent Screen.
 3. Create OAuth Client ID (Web Application) with redirect URI: `http://localhost:8000/api/drive/callback`
 4. Enter the Client ID and Secret in the AuraTube Web UI settings.
+
+<img width="328" height="376" alt="image" src="https://github.com/user-attachments/assets/a507a20b-6b8b-4ecd-ab45-e24ca0500bbc" />
+
+<img width="674" height="388" alt="image" src="https://github.com/user-attachments/assets/784ddf12-b84f-47f6-9cff-24fdccb2ae2e" />
