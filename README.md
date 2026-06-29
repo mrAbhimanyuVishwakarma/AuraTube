@@ -160,6 +160,8 @@ The frontend uses Vite and is ready for Vercel.
    - `VITE_BACKEND_URL`: Your deployed Render backend URL (e.g., `https://your-backend.onrender.com`)
 4. Deploy!
 
+<img width="514" height="395" alt="image" src="https://github.com/user-attachments/assets/927b6236-d1ba-49c0-933a-32cb32d86f95" />
+
 <img width="328" height="376" alt="image" src="https://github.com/user-attachments/assets/a507a20b-6b8b-4ecd-ab45-e24ca0500bbc" />
 
 <img width="674" height="388" alt="image" src="https://github.com/user-attachments/assets/784ddf12-b84f-47f6-9cff-24fdccb2ae2e" />
