@@ -46,8 +46,8 @@ app = FastAPI(title="AuraTube SaaS - Video Downloader & Uploader")
 
 # Enable CORS - allow Vercel frontend and local dev
 ALLOW_ORIGINS = os.environ.get(
-    "ALLOWED_ORIGINS",
-    "http://localhost:5173,http://localhost:3000"
+    "VERCEL_URL",
+    os.environ.get("ALLOWED_ORIGINS", "http://localhost:5173,http://localhost:3000")
 ).split(",")
 
 app.add_middleware(

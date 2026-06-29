@@ -13,7 +13,7 @@ SCOPES = ['https://www.googleapis.com/auth/drive.file']
 
 def _get_redirect_uri():
     """Returns the correct redirect URI based on environment."""
-    backend_url = os.environ.get("BACKEND_URL", "").rstrip("/")
+    backend_url = os.environ.get("RENDER_URL", os.environ.get("BACKEND_URL", "")).rstrip("/")
     if backend_url:
         return f"{backend_url}/api/drive/callback"
     settings = load_settings()

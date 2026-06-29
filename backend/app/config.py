@@ -53,7 +53,7 @@ def load_settings() -> AppSettings:
 
 def _write_client_secrets(client_id: str, client_secret: str):
     """Writes client_secrets.json for Google OAuth."""
-    backend_url = os.environ.get("BACKEND_URL", "http://localhost:8000")
+    backend_url = os.environ.get("RENDER_URL", os.environ.get("BACKEND_URL", "http://localhost:8000"))
     secrets_data = {
         "web": {
             "client_id": client_id,
