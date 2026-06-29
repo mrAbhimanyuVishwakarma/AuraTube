@@ -1,7 +1,7 @@
 import os
 import re
 import yt_dlp
-from app.config import CACHE_DIR, DOWNLOADS_DIR
+from app.config import CACHE_DIR, DOWNLOADS_DIR, COOKIES_FILE
 
 def get_video_info(url):
     """Extracts metadata and list of available formats for a video."""
@@ -11,6 +11,8 @@ def get_video_info(url):
         'no_warnings': True,
         'extract_flat': 'in_playlist',
     }
+    if COOKIES_FILE.exists():
+        ydl_opts['cookiefile'] = str(COOKIES_FILE)
     
     with yt_dlp.YoutubeDL(ydl_opts) as ydl:
         try:
@@ -185,6 +187,8 @@ def download_video(url, format_id, ext, resolution, on_progress_callback=None, t
         'no_warnings': True,
         'quiet': True,
     }
+    if COOKIES_FILE.exists():
+        ydl_opts['cookiefile'] = str(COOKIES_FILE)
 
     # Set up format options
     is_audio = 'mp3' in resolution.lower() or 'm4a' in resolution.lower() or ext in ['mp3', 'm4a']

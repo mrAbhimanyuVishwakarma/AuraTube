@@ -14,7 +14,7 @@ from fastapi.middleware.cors import CORSMiddleware
 from sqlalchemy.orm import Session
 from typing import List, Optional
 
-from app.config import load_settings, save_settings, AppSettings, CACHE_DIR, CLIENT_SECRETS_FILE, ensure_client_secrets
+from app.config import load_settings, save_settings, AppSettings, CACHE_DIR, CLIENT_SECRETS_FILE, ensure_client_secrets, ensure_youtube_cookies
 from app.downloader import get_video_info, download_video
 from app.drive_uploader import (
     get_auth_url,
@@ -41,6 +41,9 @@ Base.metadata.create_all(bind=engine)
 
 # Auto-create Google OAuth client_secrets.json from env vars on startup
 ensure_client_secrets()
+
+# Auto-create YouTube cookies file if YOUTUBE_COOKIES is provided
+ensure_youtube_cookies()
 
 app = FastAPI(title="AuraTube SaaS - Video Downloader & Uploader")
 

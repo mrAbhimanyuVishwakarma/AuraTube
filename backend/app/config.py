@@ -17,6 +17,7 @@ CONFIG_DIR.mkdir(parents=True, exist_ok=True)
 CLIENT_SECRETS_FILE = CONFIG_DIR / "client_secrets.json"
 TOKEN_FILE = CONFIG_DIR / "token.json"
 SETTINGS_FILE = CONFIG_DIR / "settings.json"
+COOKIES_FILE = CONFIG_DIR / "cookies.txt"
 
 class AppSettings(BaseModel):
     downloads_dir: str = str(DOWNLOADS_DIR)
@@ -87,3 +88,14 @@ def ensure_client_secrets():
     client_secret = os.environ.get("GOOGLE_CLIENT_SECRET", "")
     if client_id and client_secret and not CLIENT_SECRETS_FILE.exists():
         _write_client_secrets(client_id, client_secret)
+
+def ensure_youtube_cookies():
+    """
+    Called on app startup. If YOUTUBE_COOKIES env var exists,
+    write it to cookies.txt for yt-dlp to use.
+    """
+    cookies_content = os.environ.get("YOUTUBE_COOKIES")
+    if cookies_content:
+        cookies_content = cookies_content.replace("\\n", "\n")
+        with open(COOKIES_FILE, "w", encoding="utf-8") as f:
+            f.write(cookies_content)
