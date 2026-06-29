@@ -4,7 +4,7 @@ import json
 import asyncio
 import datetime
 from fastapi import FastAPI, BackgroundTasks, HTTPException, Query, Request, Depends, status
-from fastapi.responses import StreamingResponse, HTMLResponse
+from fastapi.responses import StreamingResponse, HTMLResponse, FileResponse
 from fastapi.middleware.cors import CORSMiddleware
 from sqlalchemy.orm import Session
 from typing import List, Optional
@@ -447,6 +447,20 @@ def clear_completed_tasks():
         if task["status"] not in ["completed", "failed"]
     }
     return {"status": "ok"}
+
+@app.get("/api/download-file/{task_id}")
+def serve_downloaded_file(task_id: str):
+    """Serves the downloaded file to the browser."""
+    task = active_downloads.get(task_id)
+    if not task or task.get("status") != "completed" or not task.get("local_path"):
+        raise HTTPException(status_code=404, detail="File not found")
+        
+    file_path = task["local_path"]
+    if not os.path.exists(file_path):
+        raise HTTPException(status_code=404, detail="File not found on server")
+        
+    filename = os.path.basename(file_path)
+    return FileResponse(path=file_path, filename=filename, media_type="application/octet-stream")
 
 # --- Settings Endpoints ---
 

@@ -10,13 +10,6 @@ def get_video_info(url):
         'quiet': True,
         'no_warnings': True,
         'extract_flat': False,
-        # Bypass YouTube bot detection on cloud servers
-        'extractor_args': {
-            'youtube': {
-                'player_client': ['android', 'web'],
-                'player_skip': ['webpage', 'configs'],
-            }
-        },
         'http_headers': {
             'User-Agent': 'Mozilla/5.0 (Linux; Android 11; Pixel 5) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Mobile Safari/537.36',
             'Accept-Language': 'en-US,en;q=0.9',
@@ -195,13 +188,6 @@ def download_video(url, format_id, ext, resolution, on_progress_callback=None, t
         'outtmpl': os.path.join(target_path, '%(title)s.%(ext)s'),
         'no_warnings': True,
         'quiet': True,
-        # Bypass YouTube bot detection on cloud servers
-        'extractor_args': {
-            'youtube': {
-                'player_client': ['android', 'web'],
-                'player_skip': ['webpage', 'configs'],
-            }
-        },
         'http_headers': {
             'User-Agent': 'Mozilla/5.0 (Linux; Android 11; Pixel 5) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Mobile Safari/537.36',
             'Accept-Language': 'en-US,en;q=0.9',

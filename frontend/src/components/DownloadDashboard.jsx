@@ -149,9 +149,25 @@ export default function DownloadDashboard({ tasks, onClearHistory, backendUrl })
                     </a>
                   )}
                   {task.target === 'local' && (
-                    <span style={{ fontSize: '0.8rem', color: '#c084fc', fontStyle: 'italic' }}>
-                      Saved to downloads folder
-                    </span>
+                    <a 
+                      href={`${backendUrl}/api/download-file/${task.id}`}
+                      download
+                      style={{ 
+                        display: 'inline-flex', 
+                        alignItems: 'center', 
+                        gap: '0.4rem', 
+                        background: 'rgba(192, 132, 252, 0.1)', 
+                        color: '#c084fc', 
+                        padding: '0.3rem 0.8rem', 
+                        borderRadius: 'var(--radius-full)', 
+                        fontSize: '0.8rem', 
+                        fontWeight: '600', 
+                        textDecoration: 'none',
+                        border: '1px solid rgba(192, 132, 252, 0.2)'
+                      }}
+                    >
+                      <Download size={13} /> Download to Device
+                    </a>
                   )}
                 </div>
               )}

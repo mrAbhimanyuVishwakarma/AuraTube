@@ -15,20 +15,30 @@ if not exist "backend\.venv\Scripts\activate" (
 
 :: Start Backend Server
 echo [1/2] Starting FastAPI Backend on port 8000...
-start "AuraTube Backend (FastAPI)" cmd /k "cd backend && .venv\Scripts\activate && python run.py"
+start /B "" cmd /c "cd backend && call .venv\Scripts\activate && python run.py"
 
 :: Start Frontend Server
-echo [2/2] Starting React Vite Frontend on port 5173...
-start "AuraTube Frontend (React)" cmd /k "cd frontend && npm run dev"
+echo [2/2] Starting React Vite Frontend on port 8089...
+start /B "" cmd /c "cd frontend && npm run dev"
+
+echo.
+echo Waiting for servers to start...
+timeout /t 3 >nul
+
+echo Opening browser...
+start http://localhost:8089
 
 echo.
 echo ===================================================
 echo AuraTube started successfully!
 echo.
-echo - Web Dashboard:   http://localhost:5173
+echo - Web Dashboard:   http://localhost:8089
 echo - Backend API Docs: http://localhost:8000/docs
 echo.
-echo Leave this launcher window open, or press any key to close this launcher.
-echo (The backend and frontend console windows will continue running).
+echo Close this launcher window to stop the servers.
 echo ===================================================
-pause
+
+:: Keep window open to allow stopping servers by closing it
+:wait_loop
+timeout /t 3600 /nobreak >nul
+goto wait_loop
