@@ -45,6 +45,19 @@ class DownloadRequest(BaseModel):
     target: str  # "local" or "drive"
     title: str
 
+class PlaylistVideoItem(BaseModel):
+    url: str
+    video_id: str
+    title: str
+
+class PlaylistDownloadRequest(BaseModel):
+    playlist_title: str
+    target: str # "local" or "drive"
+    resolution: str
+    format_id: str
+    ext: str
+    videos: list[PlaylistVideoItem]
+
 class SettingsRequest(BaseModel):
     downloads_dir: str
     google_client_id: str

@@ -1,7 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import { Play, CheckSquare, Square, Monitor, Cloud, AlertTriangle, Download, Clock, Lock } from 'lucide-react';
 
-export default function PlaylistManager({ playlistData, onDownload, driveConnected, onConnectDrive, user, onOpenPricing }) {
+export default function PlaylistManager({ playlistData, onDownload, onPlaylistDownload, driveConnected, onConnectDrive, user, onOpenPricing }) {
   const [selectedVideos, setSelectedVideos] = useState([]);
   const [globalResolution, setGlobalResolution] = useState('720p');
   const [selectedTarget, setSelectedTarget] = useState('local');
@@ -56,36 +56,33 @@ export default function PlaylistManager({ playlistData, onDownload, driveConnect
       onOpenPricing();
       return;
     }
-    if (globalResolution === '1080p' && !isPremium) {
-      onOpenPricing();
-      return;
-    }
-    if (selectedVideos.length > 1 && !isPremium) {
-      onOpenPricing();
-      return;
-    }
 
     const selectedList = videos.filter(v => selectedVideos.includes(v.id));
     const formatDetails = getFormatDetails(globalResolution);
     
-    selectedList.forEach(v => {
-      onDownload({
-        url: v.url,
-        video_id: v.id,
-        format_id: formatDetails.format_id,
-        resolution: globalResolution,
-        ext: formatDetails.ext,
+    const payload = {
+        playlist_title: title,
         target: selectedTarget,
-        title: v.title
-      });
-    });
+        resolution: globalResolution,
+        format_id: formatDetails.format_id,
+        ext: formatDetails.ext,
+        videos: selectedList.map(v => ({
+            url: v.url,
+            video_id: v.id,
+            title: v.title
+        }))
+    };
+    
+    if (onPlaylistDownload) {
+        onPlaylistDownload(payload);
+    }
   };
 
   return (
     <div className="glass-panel fade-in" style={{ padding: '2rem', borderRadius: 'var(--radius-lg)', marginBottom: '2.5rem' }}>
       {/* Playlist Header Info */}
       <div style={{ borderBottom: '1px solid var(--border-color)', paddingBottom: '1.5rem', marginBottom: '1.5rem' }}>
-        <h3 style={{ fontSize: '1.4rem', color: '#a78bfa', marginBottom: '0.5rem' }}>Playlist: {title}</h3>
+        <h3 style={{ fontSize: '1.4rem', color: '#a78bfa', marginBottom: '0.5rem', wordBreak: 'break-word' }}>Playlist: {title}</h3>
         <p style={{ color: 'var(--text-muted)', fontSize: '0.9rem' }}>
           Total videos: <strong style={{ color: 'white' }}>{video_count}</strong> | Selected: <strong style={{ color: 'white' }}>{selectedVideos.length}</strong>
         </p>
@@ -100,16 +97,12 @@ export default function PlaylistManager({ playlistData, onDownload, driveConnect
             value={globalResolution} 
             onChange={(e) => {
               const val = e.target.value;
-              if (val === '1080p' && !isPremium) {
-                onOpenPricing();
-                return;
-              }
               setGlobalResolution(val);
             }}
             className="form-input"
             style={{ padding: '0.65rem 1rem', background: '#120e26' }}
           >
-            <option value="1080p">1080p Full HD {!isPremium && '🔒 (Premium)'}</option>
+            <option value="1080p">1080p Full HD</option>
             <option value="720p">720p HD</option>
             <option value="480p">480p SD</option>
             <option value="360p">360p</option>

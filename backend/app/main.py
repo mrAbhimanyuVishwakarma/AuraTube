@@ -3,6 +3,11 @@ import uuid
 import json
 import asyncio
 import datetime
+import zipfile
+import shutil
+import re
+import asyncio
+import datetime
 from fastapi import FastAPI, BackgroundTasks, HTTPException, Query, Request, Depends, status
 from fastapi.responses import StreamingResponse, HTMLResponse, FileResponse
 from fastapi.middleware.cors import CORSMiddleware
@@ -21,7 +26,7 @@ from app.drive_uploader import (
 # SaaS imports
 from app.database import engine, Base, get_db
 from app.models import User, Transaction
-from app.schemas import UserCreate, UserLogin, UserResponse, Token, DownloadRequest, SettingsRequest
+from app.schemas import UserCreate, UserLogin, UserResponse, Token, DownloadRequest, SettingsRequest, PlaylistDownloadRequest
 from app.auth import (
     verify_password,
     get_password_hash,
@@ -332,6 +337,127 @@ async def run_download_task(task_id: str, req: DownloadRequest, user_drive_token
             except Exception:
                 pass
 
+async def run_playlist_download_task(task_id: str, req: PlaylistDownloadRequest, user_drive_token: str = None, db_session_factory=None):
+    """Background task to download a playlist, zip it, and optionally upload to Drive."""
+    task = active_downloads[task_id]
+    
+    try:
+        settings = load_settings()
+        
+        # We will download everything into a temp staging dir, then zip it.
+        temp_dir = CACHE_DIR / task_id
+        temp_dir.mkdir(parents=True, exist_ok=True)
+        
+        total_videos = len(req.videos)
+        
+        # Loop to download each video
+        for idx, video in enumerate(req.videos):
+            task["status"] = "downloading"
+            
+            def dl_hook(p_info):
+                if p_info["status"] == "downloading":
+                    task["progress"] = p_info["progress"]
+                    task["speed"] = format_speed(p_info["speed"])
+                    task["eta"] = f"{p_info['eta']}s" if p_info.get('eta') else "unknown"
+                    task["downloaded"] = format_size(p_info.get("downloaded_bytes", 0))
+                    task["total_size"] = f"[{idx+1}/{total_videos}] {video.title[:20]}..."
+                elif p_info["status"] == "merging":
+                    task["status"] = "merging"
+                    task["progress"] = 99
+                    task["speed"] = "0 B/s"
+                    task["eta"] = "merging audio & video..."
+
+            loop = asyncio.get_event_loop()
+            try:
+                await loop.run_in_executor(
+                    None, 
+                    download_video, 
+                    video.url, 
+                    req.format_id, 
+                    req.ext, 
+                    req.resolution, 
+                    dl_hook, 
+                    str(temp_dir)
+                )
+            except Exception as e:
+                print(f"Failed to download video {video.title}: {e}")
+                pass
+        
+        # Now zip the contents of temp_dir
+        task["status"] = "merging"
+        task["progress"] = 100
+        task["speed"] = "Zipping..."
+        task["eta"] = "compressing files"
+        task["total_size"] = "Finalizing..."
+        
+        safe_title = re.sub(r'[\\/*?:"<>|]', "", req.playlist_title)
+        if not safe_title.strip():
+            safe_title = "Playlist"
+            
+        zip_filename = f"{safe_title}.zip"
+        if req.target == "local":
+            zip_filepath = os.path.join(settings.downloads_dir, zip_filename)
+        else:
+            zip_filepath = os.path.join(str(temp_dir), zip_filename)
+            
+        # Write to zip
+        with zipfile.ZipFile(zip_filepath, 'w', zipfile.ZIP_DEFLATED) as zipf:
+            for root, _, files in os.walk(str(temp_dir)):
+                for f in files:
+                    if f != zip_filename:
+                        abs_file = os.path.join(root, f)
+                        zipf.write(abs_file, arcname=f)
+        
+        if req.target == "drive":
+            task["status"] = "uploading"
+            task["progress"] = 0
+            task["speed"] = "Uploading..."
+            task["eta"] = ""
+            
+            def upload_hook(progress_pct):
+                task["progress"] = progress_pct
+                task["speed"] = "Uploading..."
+                task["eta"] = f"{progress_pct}%"
+
+            from functools import partial
+            upload_fn = partial(upload_to_drive, zip_filepath, user_drive_token, upload_hook)
+            loop = asyncio.get_event_loop()
+            drive_link, drive_id, refreshed_token = await loop.run_in_executor(None, upload_fn)
+            
+            if refreshed_token and db_session_factory and task.get('user_id'):
+                try:
+                    from app.database import SessionLocal
+                    with SessionLocal() as db:
+                        u = db.query(User).filter(User.id == task['user_id']).first()
+                        if u:
+                            u.google_drive_token = refreshed_token
+                            db.commit()
+                except Exception:
+                    pass
+            
+            shutil.rmtree(temp_dir, ignore_errors=True)
+            
+            task["status"] = "completed"
+            task["progress"] = 100
+            task["drive_link"] = drive_link
+            task["drive_id"] = drive_id
+        else:
+            shutil.rmtree(temp_dir, ignore_errors=True)
+            
+            task["status"] = "completed"
+            task["progress"] = 100
+            task["speed"] = "Finished"
+            task["eta"] = ""
+            task["local_path"] = zip_filepath
+
+    except Exception as e:
+        task["status"] = "failed"
+        task["error"] = str(e)
+        try:
+            shutil.rmtree(CACHE_DIR / task_id, ignore_errors=True)
+        except:
+            pass
+
 @app.post("/api/download")
 def start_download(
     req: DownloadRequest, 
@@ -339,71 +465,18 @@ def start_download(
     background_tasks: BackgroundTasks,
     user: Optional[User] = Depends(get_optional_current_user)
 ):
-    """Enqueues a new download / upload job, enforcing Premium SaaS limits."""
-    # 1. Premium Check for direct Google Drive upload
+    """Enqueues a new download / upload job."""
+    # 1. Check for direct Google Drive upload
     if req.target == "drive":
         if not user:
             raise HTTPException(
                 status_code=401, 
                 detail="Authentication is required to download directly to Google Drive."
             )
-        if not user.check_premium_status():
-            raise HTTPException(
-                status_code=403, 
-                detail="Direct saving to Google Drive is a Premium feature. Please upgrade your account."
-            )
-            
-    # 2. Premium Check for high resolution downloads (above 720p)
-    is_high_res = False
-    try:
-        # Extract height from resolution (e.g., "1080p" -> 1080)
-        import re
-        height_match = re.search(r'\d+', req.resolution)
-        if height_match:
-            height = int(height_match.group())
-            if height > 720:
-                is_high_res = True
-    except Exception:
-        pass
-        
-    if is_high_res:
-        if not user:
-            raise HTTPException(
-                status_code=401, 
-                detail="Authentication is required to download high resolution formats."
-            )
-        if not user.check_premium_status():
-            raise HTTPException(
-                status_code=403, 
-                detail="High-definition downloads (1080p, 1440p, 4K) are restricted to Premium users. Please upgrade."
-            )
-            
-    # 3. Rate Limit Check for free users (5 downloads per day)
-    is_premium = user and user.check_premium_status()
-    if not is_premium:
-        client_ip = request.client.host
-        if not check_free_limit(client_ip):
-            raise HTTPException(
-                status_code=429,
-                detail="You have reached the free limit of 5 downloads per day. Please upgrade to Premium for unlimited downloads."
-            )
-        record_free_download(client_ip)
 
     # All checks passed, start background task
     task_id = str(uuid.uuid4())
     client_ip = request.client.host
-    
-    if not is_premium:
-        # Check active downloads for this IP (1 at a time)
-        active_for_ip = [
-            t for t in active_downloads.values() 
-            if t.get("ip") == client_ip and t["status"] in ["pending", "downloading", "uploading", "merging"]
-        ]
-        if len(active_for_ip) >= 1:
-            raise HTTPException(
-                status_code=429,
-                detail="Free users can only download one video at a time. Upgrade to Premium for bulk/playlist support."
-            )
 
     user_drive_token = user.google_drive_token if (user and req.target == 'drive') else None
 
@@ -424,6 +497,45 @@ def start_download(
     }
 
     background_tasks.add_task(run_download_task, task_id, req, user_drive_token)
+    return {"task_id": task_id, "status": "queued"}
+
+@app.post("/api/download-playlist")
+def start_playlist_download(
+    req: PlaylistDownloadRequest, 
+    request: Request,
+    background_tasks: BackgroundTasks,
+    user: Optional[User] = Depends(get_optional_current_user)
+):
+    """Enqueues a new playlist batch download job."""
+    if req.target == "drive":
+        if not user:
+            raise HTTPException(
+                status_code=401, 
+                detail="Authentication is required to download directly to Google Drive."
+            )
+
+    task_id = str(uuid.uuid4())
+    client_ip = request.client.host
+
+    user_drive_token = user.google_drive_token if (user and req.target == 'drive') else None
+
+    active_downloads[task_id] = {
+        "id": task_id,
+        "title": req.playlist_title + " (ZIP)",
+        "resolution": req.resolution,
+        "target": req.target,
+        "status": "pending",
+        "progress": 0,
+        "speed": "0 B/s",
+        "eta": "waiting...",
+        "downloaded": "0 B",
+        "total_size": f"0/{len(req.videos)} videos",
+        "error": None,
+        "ip": client_ip,
+        "user_id": user.id if user else None
+    }
+
+    background_tasks.add_task(run_playlist_download_task, task_id, req, user_drive_token)
     return {"task_id": task_id, "status": "queued"}
 
 @app.get("/api/progress")

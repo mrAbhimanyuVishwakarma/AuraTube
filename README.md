@@ -135,6 +135,31 @@ To enable direct-to-Drive downloads:
 3. Create OAuth Client ID (Web Application) with redirect URI: `http://localhost:8000/api/drive/callback`
 4. Enter the Client ID and Secret in the AuraTube Web UI settings.
 
+---
+
+## Deployment (Production)
+
+This project is configured for a split-architecture deployment: Frontend on **Vercel** and Backend on **Render**.
+
+### 1. Backend (Render)
+The backend uses a Docker environment to ensure `ffmpeg` is available for `yt-dlp`.
+1. Create a new **Web Service** on [Render](https://render.com/).
+2. Connect your GitHub repository.
+3. Render should automatically detect the `render.yaml` configuration. If not, choose **Docker** as the environment and set the `Dockerfile` path to `./backend/Dockerfile`.
+4. In the Render Dashboard, add the following Environment Variables:
+   - `ALLOWED_ORIGINS`: Your Vercel frontend URL (e.g., `https://your-app.vercel.app`)
+   - `BACKEND_URL`: Your Render backend URL (e.g., `https://your-backend.onrender.com`)
+   - `GOOGLE_CLIENT_ID`: (Optional) For Google Drive integration
+   - `GOOGLE_CLIENT_SECRET`: (Optional) For Google Drive integration
+
+### 2. Frontend (Vercel)
+The frontend uses Vite and is ready for Vercel.
+1. Create a new Project on [Vercel](https://vercel.com/) and import your repository.
+2. The root `vercel.json` will automatically configure Vercel to build the `frontend` folder.
+3. In the Vercel Dashboard, go to **Settings > Environment Variables** and add:
+   - `VITE_BACKEND_URL`: Your deployed Render backend URL (e.g., `https://your-backend.onrender.com`)
+4. Deploy!
+
 <img width="328" height="376" alt="image" src="https://github.com/user-attachments/assets/a507a20b-6b8b-4ecd-ab45-e24ca0500bbc" />
 
 <img width="674" height="388" alt="image" src="https://github.com/user-attachments/assets/784ddf12-b84f-47f6-9cff-24fdccb2ae2e" />

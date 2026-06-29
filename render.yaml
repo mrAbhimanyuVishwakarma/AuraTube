@@ -1,0 +1,13 @@
+services:
+  - type: web
+    name: auratube-backend
+    env: docker
+    region: oregon
+    plan: free
+    dockerContext: ./backend
+    dockerfilePath: ./backend/Dockerfile
+    envVars:
+      - key: ALLOWED_ORIGINS
+        value: "https://your-frontend-domain.vercel.app,http://localhost:5173"
+      # Add other environment variables here (like GOOGLE_CLIENT_ID, etc.)
+      # It's recommended to set secrets directly in the Render Dashboard instead of committing them here.

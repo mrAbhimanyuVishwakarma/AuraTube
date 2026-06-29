@@ -1,7 +1,28 @@
-import React from 'react';
+import React, { useEffect, useRef } from 'react';
 import { Download, CheckCircle, XCircle, Loader2, CloudLightning, ExternalLink, HardDrive, Trash2 } from 'lucide-react';
 
 export default function DownloadDashboard({ tasks, onClearHistory, backendUrl }) {
+  const autoDownloaded = useRef(new Set());
+
+  useEffect(() => {
+    if (!tasks) return;
+    
+    tasks.forEach(task => {
+      // Auto-trigger browser download for finished local tasks exactly once
+      if (task.status === 'completed' && task.target === 'local' && !autoDownloaded.current.has(task.id)) {
+        autoDownloaded.current.add(task.id);
+        
+        const a = document.createElement('a');
+        a.href = `${backendUrl}/api/download-file/${task.id}`;
+        a.download = '';
+        a.style.display = 'none';
+        document.body.appendChild(a);
+        a.click();
+        document.body.removeChild(a);
+      }
+    });
+  }, [tasks, backendUrl]);
+
   const handleClear = async () => {
     try {
       const res = await fetch(`${backendUrl}/api/tasks/clear`, { method: 'POST' });

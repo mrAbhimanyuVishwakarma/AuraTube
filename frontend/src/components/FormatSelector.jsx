@@ -36,10 +36,10 @@ export default function FormatSelector({ videoData, onDownload, driveConnected, 
       return;
     }
 
-    // Lock resolutions > 720p behind premium
+    // Lock resolutions > 1080p behind premium
     const heightMatch = format.resolution.match(/\d+/);
     const height = heightMatch ? parseInt(heightMatch[0]) : 0;
-    if (height > 720 && !isPremium) {
+    if (height > 1080 && !isPremium) {
       onOpenPricing();
       return;
     }
@@ -68,9 +68,9 @@ export default function FormatSelector({ videoData, onDownload, driveConnected, 
           </span>
         </div>
         
-        <div style={{ flex: 1, minWidth: '280px', display: 'flex', flexDirection: 'column', justifyContent: 'space-between' }}>
+        <div style={{ flex: 1, minWidth: 0, display: 'flex', flexDirection: 'column', justifyContent: 'space-between' }}>
           <div>
-            <h3 style={{ fontSize: '1.25rem', marginBottom: '0.5rem', lineHeight: '1.4' }}>{title}</h3>
+            <h3 style={{ fontSize: '1.25rem', marginBottom: '0.5rem', lineHeight: '1.4', wordBreak: 'break-word' }}>{title}</h3>
             <p style={{ color: 'var(--text-muted)', fontSize: '0.85rem' }}>YouTube Video ID: {id}</p>
           </div>
           
@@ -170,7 +170,7 @@ export default function FormatSelector({ videoData, onDownload, driveConnected, 
             </h4>
             <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(130px, 1fr))', gap: '0.75rem' }}>
               {videoFormats.map((f, idx) => {
-                const isLocked = f.height > 720 && !isPremium;
+                const isLocked = f.height > 1080 && !isPremium;
                 return (
                   <button
                     key={idx}

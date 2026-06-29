@@ -160,6 +160,27 @@ export default function App() {
     }
   };
 
+  const handlePlaylistDownloadTrigger = async (downloadPayload) => {
+    try {
+      const headers = { 'Content-Type': 'application/json' };
+      const token = localStorage.getItem('token');
+      if (token) {
+        headers['Authorization'] = `Bearer ${token}`;
+      }
+      const res = await fetch(`${BACKEND_URL}/api/download-playlist`, {
+        method: 'POST',
+        headers: headers,
+        body: JSON.stringify(downloadPayload)
+      });
+      if (!res.ok) {
+        const errData = await res.json();
+        alert(errData.detail || "Failed to start playlist download.");
+      }
+    } catch (err) {
+      alert("Error contacting server. Please try again.");
+    }
+  };
+
   const handleDisconnectDrive = async () => {
     try {
       const res = await fetch(`${BACKEND_URL}/api/drive/disconnect`, { method: 'POST' });
@@ -442,6 +463,7 @@ export default function App() {
             <PlaylistManager
               playlistData={videoData}
               onDownload={handleDownloadTrigger}
+              onPlaylistDownload={handlePlaylistDownloadTrigger}
               driveConnected={driveStatus.is_connected}
               onConnectDrive={handleConnectDrive}
               user={user}
