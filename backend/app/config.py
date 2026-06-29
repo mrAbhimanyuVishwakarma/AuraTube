@@ -96,6 +96,15 @@ def ensure_youtube_cookies():
     """
     cookies_content = os.environ.get("YOUTUBE_COOKIES")
     if cookies_content:
+        # Some platforms escape newlines as literal '\n' string
         cookies_content = cookies_content.replace("\\n", "\n")
+        
+        # Strip leading/trailing whitespaces
+        cookies_content = cookies_content.strip()
+        
+        # yt-dlp strictly requires this header to parse the Netscape cookie file
+        if not cookies_content.startswith("# Netscape HTTP Cookie File"):
+            cookies_content = "# Netscape HTTP Cookie File\n\n" + cookies_content
+            
         with open(COOKIES_FILE, "w", encoding="utf-8") as f:
             f.write(cookies_content)
