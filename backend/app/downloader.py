@@ -11,11 +11,12 @@ def get_video_info(url):
         'no_warnings': True,
         'extract_flat': 'in_playlist',
         'extractor_args': {
-            'youtube': ['player_client=android,ios,web']
+            'youtube': ['player_client=android_vr']
         }
     }
-    if COOKIES_FILE.exists():
-        ydl_opts['cookiefile'] = str(COOKIES_FILE)
+    # Disable cookies because yt-dlp skips android_vr if cookies are present
+    # if COOKIES_FILE.exists():
+    #     ydl_opts['cookiefile'] = str(COOKIES_FILE)
     
     with yt_dlp.YoutubeDL(ydl_opts) as ydl:
         try:
@@ -183,7 +184,6 @@ def download_video(url, format_id, ext, resolution, on_progress_callback=None, t
                     'eta': 0
                 })
 
-    # Base configuration for yt-dlp
     ydl_opts = {
         'nocheckcertificate': True,
         'progress_hooks': [hook],
@@ -191,11 +191,12 @@ def download_video(url, format_id, ext, resolution, on_progress_callback=None, t
         'no_warnings': True,
         'quiet': True,
         'extractor_args': {
-            'youtube': ['player_client=android,ios,web']
+            'youtube': ['player_client=android_vr']
         }
     }
-    if COOKIES_FILE.exists():
-        ydl_opts['cookiefile'] = str(COOKIES_FILE)
+    # Disable cookies because yt-dlp skips android_vr if cookies are present
+    # if COOKIES_FILE.exists():
+    #     ydl_opts['cookiefile'] = str(COOKIES_FILE)
 
     # Set up format options
     is_audio = 'mp3' in resolution.lower() or 'm4a' in resolution.lower() or ext in ['mp3', 'm4a']
