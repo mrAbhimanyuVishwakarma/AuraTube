@@ -91,10 +91,18 @@ def ensure_client_secrets():
 
 def ensure_youtube_cookies():
     """
-    Called on app startup. If YOUTUBE_COOKIES env var exists,
-    write it to cookies.txt for yt-dlp to use.
+    Called on app startup. If a Secret File exists at /etc/secrets/cookies.txt,
+    or if YOUTUBE_COOKIES env var exists, write it to cookies.txt for yt-dlp to use.
     """
-    cookies_content = os.environ.get("YOUTUBE_COOKIES")
+    secret_file_path = Path("/etc/secrets/cookies.txt")
+    cookies_content = None
+
+    if secret_file_path.exists():
+        with open(secret_file_path, "r", encoding="utf-8") as sf:
+            cookies_content = sf.read()
+    else:
+        cookies_content = os.environ.get("YOUTUBE_COOKIES")
+
     if cookies_content:
         # Some platforms escape newlines as literal '\n' string
         cookies_content = cookies_content.replace("\\n", "\n")
