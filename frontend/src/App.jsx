@@ -345,6 +345,10 @@ export default function App() {
           <h1 style={{ fontSize: '4.5rem', lineHeight: '1.1', fontWeight: '800', letterSpacing: '-0.03em', color: 'var(--text-main)' }}>
             Download Video<br />& Playlists.
           </h1>
+          <div style={{ display: 'flex', gap: '1.5rem', marginTop: '1.5rem' }}>
+            <a href="#privacy-policy" style={{ color: 'var(--text-muted)', fontSize: '1rem', textDecoration: 'underline' }}>Privacy Policy</a>
+            <a href="#terms-of-service" style={{ color: 'var(--text-muted)', fontSize: '1rem', textDecoration: 'underline' }}>Terms of Service</a>
+          </div>
         </div>
         <div style={{ paddingLeft: '2rem' }}>
           <p style={{ fontSize: '0.8rem', fontWeight: '700', color: 'var(--text-muted)', letterSpacing: '0.1em', textTransform: 'uppercase', marginBottom: '1rem' }}>
@@ -547,30 +551,55 @@ export default function App() {
             </div>
           </div>
         </div>
+      </div>
+
+      {/* Privacy Policy Section */}
+      <div id="privacy-policy" style={{ marginTop: '4rem', marginBottom: '4rem', padding: '3rem', background: 'var(--bg-card)', borderRadius: 'var(--radius-lg)', border: '1px solid var(--border-color)' }}>
+        <h2 style={{ fontSize: '2.5rem', fontWeight: '800', marginBottom: '1.5rem', color: 'var(--text-main)', letterSpacing: '-0.02em' }}>
+          Privacy Policy
+        </h2>
+        <div style={{ color: 'var(--text-muted)', fontSize: '1.05rem', lineHeight: '1.7', maxWidth: '800px', display: 'flex', flexDirection: 'column', gap: '1rem' }}>
+          <p>
+            Welcome to AuraTube. We respect your privacy and are committed to protecting your personal data. This privacy policy will inform you as to how we look after your personal data when you visit our website and tell you about your privacy rights.
+          </p>
+          <h3 style={{ color: 'var(--text-main)', fontSize: '1.3rem', marginTop: '1rem', marginBottom: '0.5rem' }}>1. Data we collect</h3>
+          <p>
+            When you use Google Sign-In, we collect your email address, name, and basic profile information. When you connect Google Drive, we only request the specific scopes required to upload the videos you explicitly ask us to download on your behalf.
+          </p>
+          <h3 style={{ color: 'var(--text-main)', fontSize: '1.3rem', marginTop: '1rem', marginBottom: '0.5rem' }}>2. How we use your data</h3>
+          <p>
+            We use your data solely for the purpose of providing the AuraTube service. Your Google Drive connection is used exclusively to save the media files you request. We do not read, modify, or delete any other files in your Google Drive. We do not sell your personal data to third parties.
+          </p>
+          <h3 style={{ color: 'var(--text-main)', fontSize: '1.3rem', marginTop: '1rem', marginBottom: '0.5rem' }}>3. Data Security</h3>
+          <p>
+            We have put in place appropriate security measures to prevent your personal data from being accidentally lost, used, or accessed in an unauthorized way.
+          </p>
         </div>
       </div>
 
-      {/* Footer */}
-      <footer style={{ 
-        marginTop: '2rem', 
-        paddingTop: '2rem', 
-        paddingBottom: '2rem', 
-        borderTop: '1px solid var(--border-color)', 
-        display: 'flex', 
-        justifyContent: 'space-between', 
-        alignItems: 'center', 
-        flexWrap: 'wrap', 
-        gap: '1rem' 
-      }}>
-        <div className="logo-text" style={{ fontSize: '1.25rem' }}>AuraTube<span>.</span></div>
-        <div style={{ display: 'flex', gap: '1.5rem', fontSize: '0.9rem' }}>
-          <a href="/privacy-policy.html" target="_blank" rel="noopener noreferrer" style={{ color: 'var(--text-muted)', textDecoration: 'none', transition: 'color 0.2s' }} onMouseOver={e => e.target.style.color = 'var(--text-main)'} onMouseOut={e => e.target.style.color = 'var(--text-muted)'}>Privacy Policy</a>
-          <a href="/terms-of-service.html" target="_blank" rel="noopener noreferrer" style={{ color: 'var(--text-muted)', textDecoration: 'none', transition: 'color 0.2s' }} onMouseOver={e => e.target.style.color = 'var(--text-main)'} onMouseOut={e => e.target.style.color = 'var(--text-muted)'}>Terms of Service</a>
+      {/* Terms of Service Section */}
+      <div id="terms-of-service" style={{ marginTop: '4rem', marginBottom: '6rem', padding: '3rem', background: 'var(--bg-card)', borderRadius: 'var(--radius-lg)', border: '1px solid var(--border-color)' }}>
+        <h2 style={{ fontSize: '2.5rem', fontWeight: '800', marginBottom: '1.5rem', color: 'var(--text-main)', letterSpacing: '-0.02em' }}>
+          Terms of Service
+        </h2>
+        <div style={{ color: 'var(--text-muted)', fontSize: '1.05rem', lineHeight: '1.7', maxWidth: '800px', display: 'flex', flexDirection: 'column', gap: '1rem' }}>
+          <p>
+            By using AuraTube, you agree to be bound by these Terms of Service. If you do not agree to these terms, please do not use our service.
+          </p>
+          <h3 style={{ color: 'var(--text-main)', fontSize: '1.3rem', marginTop: '1rem', marginBottom: '0.5rem' }}>1. Usage Restrictions</h3>
+          <p>
+            You agree not to use AuraTube to download copyrighted material without the express permission of the copyright owner. AuraTube is a tool intended for downloading your own media, royalty-free content, or media for which you have explicit rights.
+          </p>
+          <h3 style={{ color: 'var(--text-main)', fontSize: '1.3rem', marginTop: '1rem', marginBottom: '0.5rem' }}>2. Fair Use</h3>
+          <p>
+            While we strive to provide reliable and fast downloads, we reserve the right to rate-limit or suspend accounts that abuse the platform's resources or attempt to circumvent our usage limits.
+          </p>
+          <h3 style={{ color: 'var(--text-main)', fontSize: '1.3rem', marginTop: '1rem', marginBottom: '0.5rem' }}>3. Disclaimer of Warranties</h3>
+          <p>
+            The service is provided "as is" and "as available" without any warranties of any kind. We do not guarantee that the service will be uninterrupted, completely secure, or error-free.
+          </p>
         </div>
-        <div style={{ fontSize: '0.85rem', color: 'var(--text-muted)' }}>
-          © {new Date().getFullYear()} AuraTube. All rights reserved.
-        </div>
-      </footer>
+      </div>
 
       {/* Auth Modal Overlay */}
       <AuthModal 
