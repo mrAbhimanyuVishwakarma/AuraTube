@@ -353,6 +353,7 @@ async def run_playlist_download_task(task_id: str, req: PlaylistDownloadRequest,
         
         total_videos = len(req.videos)
         successful_downloads = 0
+        last_error_message = "Unknown yt-dlp error"
         
         # Loop to download each video
         for idx, video in enumerate(req.videos):
@@ -385,11 +386,12 @@ async def run_playlist_download_task(task_id: str, req: PlaylistDownloadRequest,
                 )
                 successful_downloads += 1
             except Exception as e:
-                print(f"Failed to download video {video.title}: {e}")
+                last_error_message = str(e)
+                print(f"Failed to download video {video.title}: {last_error_message}")
                 pass
         
         if successful_downloads == 0:
-            raise Exception("All videos failed to download. Check server logs (ffmpeg might be missing).")
+            raise Exception(f"Download Failed: {last_error_message}")
 
         # Now zip the contents of temp_dir
         task["status"] = "merging"

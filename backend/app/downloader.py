@@ -10,6 +10,9 @@ def get_video_info(url):
         'quiet': True,
         'no_warnings': True,
         'extract_flat': 'in_playlist',
+        'extractor_args': {
+            'youtube': ['player_client=android,ios,web']
+        }
     }
     if COOKIES_FILE.exists():
         ydl_opts['cookiefile'] = str(COOKIES_FILE)
@@ -187,6 +190,9 @@ def download_video(url, format_id, ext, resolution, on_progress_callback=None, t
         'outtmpl': os.path.join(target_path, '%(title)s.%(ext)s'),
         'no_warnings': True,
         'quiet': True,
+        'extractor_args': {
+            'youtube': ['player_client=android,ios,web']
+        }
     }
     if COOKIES_FILE.exists():
         ydl_opts['cookiefile'] = str(COOKIES_FILE)
