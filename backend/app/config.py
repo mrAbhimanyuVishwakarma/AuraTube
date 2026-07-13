@@ -5,12 +5,10 @@ from pydantic import BaseModel
 
 BASE_DIR = Path(__file__).resolve().parent.parent.parent
 BACKEND_DIR = Path(__file__).resolve().parent.parent
-DOWNLOADS_DIR = BASE_DIR / "downloads"
 CACHE_DIR = BACKEND_DIR / "cache"
 CONFIG_DIR = BACKEND_DIR / "config"
 
 # Create required directories
-DOWNLOADS_DIR.mkdir(parents=True, exist_ok=True)
 CACHE_DIR.mkdir(parents=True, exist_ok=True)
 CONFIG_DIR.mkdir(parents=True, exist_ok=True)
 
@@ -20,7 +18,6 @@ SETTINGS_FILE = CONFIG_DIR / "settings.json"
 COOKIES_FILE = CONFIG_DIR / "cookies.txt"
 
 class AppSettings(BaseModel):
-    downloads_dir: str = str(DOWNLOADS_DIR)
     google_client_id: str = ""
     google_client_secret: str = ""
     port: int = 8000

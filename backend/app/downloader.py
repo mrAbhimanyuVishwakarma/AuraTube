@@ -4,7 +4,7 @@ import yt_dlp
 import logging
 from pathlib import Path
 from typing import Optional, Any
-from app.config import CACHE_DIR, DOWNLOADS_DIR, COOKIES_FILE
+from app.config import CACHE_DIR, COOKIES_FILE
 from app.errors import (
     DownloaderError,
     InvalidURLError,
