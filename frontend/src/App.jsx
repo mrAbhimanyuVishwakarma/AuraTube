@@ -345,6 +345,10 @@ export default function App() {
           <h1 style={{ fontSize: '4.5rem', lineHeight: '1.1', fontWeight: '800', letterSpacing: '-0.03em', color: 'var(--text-main)' }}>
             Download Video<br />& Playlists.
           </h1>
+          <div style={{ marginTop: '1.5rem', display: 'flex', gap: '1.5rem', fontSize: '0.9rem' }}>
+            <a href="/privacy-policy.html" target="_blank" rel="noopener noreferrer" style={{ color: 'var(--text-muted)', textDecoration: 'underline', transition: 'color 0.2s' }} onMouseOver={e => e.target.style.color = 'var(--text-main)'} onMouseOut={e => e.target.style.color = 'var(--text-muted)'}>Privacy Policy</a>
+            <a href="/terms-of-service.html" target="_blank" rel="noopener noreferrer" style={{ color: 'var(--text-muted)', textDecoration: 'underline', transition: 'color 0.2s' }} onMouseOver={e => e.target.style.color = 'var(--text-main)'} onMouseOut={e => e.target.style.color = 'var(--text-muted)'}>Terms of Service</a>
+          </div>
         </div>
         <div style={{ paddingLeft: '2rem' }}>
           <p style={{ fontSize: '0.8rem', fontWeight: '700', color: 'var(--text-muted)', letterSpacing: '0.1em', textTransform: 'uppercase', marginBottom: '1rem' }}>
