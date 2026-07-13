@@ -9,13 +9,13 @@ RUN apt-get update && \
 WORKDIR /app
 
 # Copy requirements
-COPY requirements.txt .
+COPY backend/requirements.txt .
 
 # Install Python dependencies
 RUN pip install --no-cache-dir -r requirements.txt
 
 # Copy application code
-COPY . .
+COPY backend/ .
 
 # Set environment variables
 ENV PYTHONUNBUFFERED=1
