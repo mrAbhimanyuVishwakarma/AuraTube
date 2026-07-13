@@ -5,10 +5,10 @@
   --font-body: 'Plus Jakarta Sans', -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
   
   /* Defaults to Light Theme */
-  --bg-main: #ffffff;
+  --bg-main: #f9fafb;
   --bg-card: #ffffff;
-  --bg-card-hover: #fafafa;
-  --border-color: rgba(0, 0, 0, 0.08);
+  --bg-card-hover: #f3f4f6;
+  --border-color: rgba(0, 0, 0, 0.06);
   --border-color-focus: rgba(255, 87, 34, 0.4);
   
   --text-main: #111111;
