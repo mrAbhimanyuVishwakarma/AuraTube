@@ -169,7 +169,7 @@ export default function PricingModal({ isOpen, onClose, onSuccess, backendUrl })
         <div style={{ display: 'flex', flexDirection: 'column', gap: '0.75rem', marginBottom: '2rem', color: 'var(--text-main)' }}>
           <div style={{ display: 'flex', gap: '0.5rem', alignItems: 'center', fontSize: '0.9rem' }}>
             <Check size={18} color="var(--accent-primary)" />
-            <span>High Quality Downloads (1080p, 1440p, 4K)</span>
+            <span>High Quality Downloads (1440p, 4K, 8K)</span>
           </div>
           <div style={{ display: 'flex', gap: '0.5rem', alignItems: 'center', fontSize: '0.9rem' }}>
             <Check size={18} color="var(--accent-primary)" />

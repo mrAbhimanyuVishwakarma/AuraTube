@@ -109,13 +109,14 @@ def parse_single_video_info(info):
             best_audio = af
 
     if best_audio:
-        audio_options.append({
-            'format_id': 'bestaudio/best',
-            'resolution': 'MP3 (160k)',
-            'ext': 'mp3',
-            'size': best_audio_fs or int((160 * 1024 / 8) * (info.get('duration') or 0)),
-            'is_audio': True
-        })
+        for quality in [320, 256, 128, 64]:
+            audio_options.append({
+                'format_id': 'bestaudio/best',
+                'resolution': f'MP3 ({quality}k)',
+                'ext': 'mp3',
+                'size': int((quality * 1024 / 8) * (info.get('duration') or 0)),
+                'is_audio': True
+            })
         # Add M4A direct if available
         m4a_audios = [af for af in audio_formats if af.get('ext') == 'm4a']
         if m4a_audios:
@@ -195,12 +196,17 @@ def download_video(url, format_id, ext, resolution, on_progress_callback=None, t
     
     if is_audio:
         if ext == 'mp3':
+            quality = '128'
+            quality_match = re.search(r'\((\d+)k\)', resolution)
+            if quality_match:
+                quality = quality_match.group(1)
+                
             ydl_opts.update({
                 'format': 'bestaudio/best',
                 'postprocessors': [{
                     'key': 'FFmpegExtractAudio',
                     'preferredcodec': 'mp3',
-                    'preferredquality': '160',
+                    'preferredquality': quality,
                 }],
             })
         else:

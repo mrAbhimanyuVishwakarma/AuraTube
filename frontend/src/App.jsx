@@ -522,7 +522,7 @@ export default function App() {
             <div style={{ marginBottom: '2rem', padding: '1.5rem', border: '1px solid var(--border-color)', borderRadius: 'var(--radius-md)' }}>
               <h4 style={{ fontSize: '1.1rem', fontWeight: '700', color: 'var(--text-main)', marginBottom: '0.5rem' }}>Free Plan</h4>
               <ul style={{ color: 'var(--text-muted)', fontSize: '0.9rem', lineHeight: '1.6', paddingLeft: '1.2rem', margin: 0 }}>
-                <li>Standard resolution downloads (up to 720p)</li>
+                <li>Standard resolution downloads (up to 1080p)</li>
                 <li>Process 1 video at a time</li>
                 <li>Local Download & Google Drive supported</li>
                 <li>Standard processing speed</li>
@@ -533,7 +533,7 @@ export default function App() {
               <span style={{ position: 'absolute', top: '-12px', right: '1.5rem', background: 'var(--accent-primary)', color: 'white', fontSize: '0.75rem', fontWeight: '700', padding: '0.2rem 0.6rem', borderRadius: 'var(--radius-full)' }}>PRO</span>
               <h4 style={{ fontSize: '1.1rem', fontWeight: '700', color: 'var(--text-main)', marginBottom: '0.5rem' }}>Premium Plan</h4>
               <ul style={{ color: 'var(--text-muted)', fontSize: '0.9rem', lineHeight: '1.6', paddingLeft: '1.2rem', margin: 0 }}>
-                <li>Maximum resolution support (1080p, 2K, 4K)</li>
+                <li>Maximum resolution support (2K, 4K)</li>
                 <li>Bulk Playlist downloading (Unlimited concurrency)</li>
                 <li>Priority high-speed server processing</li>
               </ul>

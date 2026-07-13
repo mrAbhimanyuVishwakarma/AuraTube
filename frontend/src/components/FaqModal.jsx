@@ -14,7 +14,7 @@ const FAQ_DATABASE = [
     keywords: ['price', 'cost', 'premium', 'upgrade', 'difference', 'free', 'subscription'],
     responses: [
       "AuraTube is free for basic use! Our Premium plan ($2.99/month) unlocks unlimited downloads, 4K resolution, and direct Google Drive cloud saves.",
-      "You can use our Free plan forever with a 5-video daily limit (up to 720p). If you need more power, Premium is $2.99/mo for unlimited batch processing and 4K support.",
+      "You can use our Free plan forever with a 5-video daily limit (up to 1080p). If you need more power, Premium is $2.99/mo for unlimited batch processing and 4K support.",
       "The Free tier is great for occasional downloads. For heavy users, Premium offers unlimited high-speed downloads, playlist batching, and Drive uploads for a small monthly fee."
     ]
   },
@@ -37,8 +37,8 @@ const FAQ_DATABASE = [
   {
     keywords: ['resolution', '4k', '1080p', 'quality', 'hd'],
     responses: [
-      "Free users can download up to 720p resolution. Premium users unlock everything up to 4K and 8K where available!",
-      "We support all YouTube resolutions! 720p is free, while 1080p, 1440p, and 4K are reserved for Premium subscribers.",
+      "Free users can download up to 1080p resolution. Premium users unlock everything up to 4K and 8K where available!",
+      "We support all YouTube resolutions! 1080p is free, while 1440p and 4K are reserved for Premium subscribers.",
       "If the original video is in 4K, our Premium plan can fetch it in full 4K quality with perfectly synced audio."
     ]
   },

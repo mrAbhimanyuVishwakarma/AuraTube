@@ -42,7 +42,7 @@ export default function PlaylistManager({ playlistData, onDownload, onPlaylistDo
   };
 
   const getFormatDetails = (res) => {
-    if (res === 'mp3') {
+    if (res.startsWith('MP3') || res === 'mp3') {
       return { format_id: 'bestaudio/best', ext: 'mp3' };
     }
     if (res === 'm4a') {
@@ -106,7 +106,10 @@ export default function PlaylistManager({ playlistData, onDownload, onPlaylistDo
             <option value="720p">720p HD</option>
             <option value="480p">480p SD</option>
             <option value="360p">360p</option>
-            <option value="mp3">Audio (MP3)</option>
+            <option value="MP3 (320k)">Audio (MP3 320kbps)</option>
+            <option value="MP3 (256k)">Audio (MP3 256kbps)</option>
+            <option value="MP3 (128k)">Audio (MP3 128kbps)</option>
+            <option value="MP3 (64k)">Audio (MP3 64kbps)</option>
             <option value="m4a">Audio (M4A)</option>
           </select>
         </div>
