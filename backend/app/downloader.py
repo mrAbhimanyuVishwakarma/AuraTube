@@ -3,6 +3,10 @@ import re
 import yt_dlp
 from app.config import CACHE_DIR, DOWNLOADS_DIR, COOKIES_FILE
 
+import yt_dlp.extractor.youtube._base
+# Monkeypatch yt_dlp to allow android_vr to use cookies, otherwise it skips it
+yt_dlp.extractor.youtube._base.INNERTUBE_CLIENTS['android_vr']['SUPPORTS_COOKIES'] = True
+
 def get_video_info(url):
     """Extracts metadata and list of available formats for a video."""
     ydl_opts = {
@@ -14,9 +18,8 @@ def get_video_info(url):
             'youtube': ['player_client=android_vr']
         }
     }
-    # Disable cookies because yt-dlp skips android_vr if cookies are present
-    # if COOKIES_FILE.exists():
-    #     ydl_opts['cookiefile'] = str(COOKIES_FILE)
+    if COOKIES_FILE.exists():
+        ydl_opts['cookiefile'] = str(COOKIES_FILE)
     
     with yt_dlp.YoutubeDL(ydl_opts) as ydl:
         try:
@@ -194,9 +197,8 @@ def download_video(url, format_id, ext, resolution, on_progress_callback=None, t
             'youtube': ['player_client=android_vr']
         }
     }
-    # Disable cookies because yt-dlp skips android_vr if cookies are present
-    # if COOKIES_FILE.exists():
-    #     ydl_opts['cookiefile'] = str(COOKIES_FILE)
+    if COOKIES_FILE.exists():
+        ydl_opts['cookiefile'] = str(COOKIES_FILE)
 
     # Set up format options
     is_audio = 'mp3' in resolution.lower() or 'm4a' in resolution.lower() or ext in ['mp3', 'm4a']
