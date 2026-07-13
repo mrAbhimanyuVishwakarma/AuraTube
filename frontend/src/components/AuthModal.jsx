@@ -83,7 +83,6 @@ export default function AuthModal({ isOpen, onClose, onSuccess, backendUrl, onGo
               ))}
             </div>
           </div>
-          </div>
       </div>
     </div>
   );
