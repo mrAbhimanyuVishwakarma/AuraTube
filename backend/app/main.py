@@ -14,8 +14,10 @@ from fastapi.middleware.cors import CORSMiddleware
 from sqlalchemy.orm import Session
 from typing import List, Optional
 
-from app.config import load_settings, save_settings, AppSettings, CACHE_DIR, CLIENT_SECRETS_FILE, ensure_client_secrets, ensure_youtube_cookies
+from app.config import load_settings, save_settings, AppSettings, CACHE_DIR, CLIENT_SECRETS_FILE, ensure_client_secrets, ensure_youtube_cookies, get_cookie_status
 from app.downloader import get_video_info, download_video
+from app.errors import DownloaderError
+from fastapi.responses import StreamingResponse, HTMLResponse, FileResponse, JSONResponse
 from app.drive_uploader import (
     get_auth_url,
     handle_oauth_callback,
@@ -89,6 +91,37 @@ def record_free_download(ip: str):
     if ip not in free_download_limits:
         free_download_limits[ip] = []
     free_download_limits[ip].append(datetime.datetime.utcnow())
+
+# --- Exception Handlers ---
+@app.exception_handler(DownloaderError)
+async def downloader_error_handler(request: Request, exc: DownloaderError):
+    return JSONResponse(
+        status_code=400,
+        content={
+            "error": {
+                "code": exc.code,
+                "message": exc.message,
+                "retryable": exc.retryable
+            }
+        }
+    )
+
+# --- Diagnostic & Health Endpoints ---
+
+@app.get("/api/health")
+def health_check():
+    return {"status": "ok", "timestamp": datetime.datetime.utcnow().isoformat()}
+
+@app.get("/api/diagnostics/downloader")
+def diagnostics_downloader():
+    import yt_dlp
+    import shutil
+    return {
+        "yt_dlp_version": yt_dlp.version.__version__,
+        "ffmpeg_available": shutil.which("ffmpeg") is not None,
+        "cookies": get_cookie_status(),
+        "configured_player_clients": os.environ.get("YTDLP_PLAYER_CLIENTS", "default").split(","),
+    }
 
 # --- Authentication Endpoints ---
 

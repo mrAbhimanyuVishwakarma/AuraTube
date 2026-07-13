@@ -89,6 +89,26 @@ def ensure_client_secrets():
     if client_id and client_secret and not CLIENT_SECRETS_FILE.exists():
         _write_client_secrets(client_id, client_secret)
 
+import logging
+
+logger = logging.getLogger(__name__)
+
+def validate_cookies_content(content: str) -> bool:
+    """Validates that the content is a proper Netscape HTTP Cookie File"""
+    if not content:
+        return False
+    # Check if there's at least one valid cookie row (tab-separated with 7 fields)
+    has_valid_row = False
+    for line in content.splitlines():
+        line = line.strip()
+        if not line or line.startswith('#'):
+            continue
+        parts = line.split('\t')
+        if len(parts) >= 7:
+            has_valid_row = True
+            break
+    return has_valid_row
+
 def ensure_youtube_cookies():
     """
     Called on app startup. If a Secret File exists at /etc/secrets/cookies.txt,
@@ -104,15 +124,32 @@ def ensure_youtube_cookies():
         cookies_content = os.environ.get("YOUTUBE_COOKIES")
 
     if cookies_content:
-        # Some platforms escape newlines as literal '\n' string
-        cookies_content = cookies_content.replace("\\n", "\n")
+        cookies_content = cookies_content.replace("\\n", "\n").strip()
         
-        # Strip leading/trailing whitespaces
-        cookies_content = cookies_content.strip()
-        
-        # yt-dlp strictly requires this header to parse the Netscape cookie file
-        if not cookies_content.startswith("# Netscape HTTP Cookie File"):
-            cookies_content = "# Netscape HTTP Cookie File\n\n" + cookies_content
-            
-        with open(COOKIES_FILE, "w", encoding="utf-8") as f:
-            f.write(cookies_content)
+        if validate_cookies_content(cookies_content):
+            if not cookies_content.startswith("# Netscape HTTP Cookie File"):
+                cookies_content = "# Netscape HTTP Cookie File\n\n" + cookies_content
+            with open(COOKIES_FILE, "w", encoding="utf-8") as f:
+                f.write(cookies_content)
+        else:
+            logger.warning("Invalid cookie format detected. Skipping cookie file creation.")
+            if COOKIES_FILE.exists():
+                COOKIES_FILE.unlink()
+
+def get_cookie_status() -> dict:
+    is_enabled = os.environ.get("YTDLP_USE_COOKIES", "false").lower() == "true"
+    status = {
+        "configured": is_enabled,
+        "valid_format": False,
+        "youtube_cookie_count": 0
+    }
+    if COOKIES_FILE.exists():
+        try:
+            with open(COOKIES_FILE, "r", encoding="utf-8") as f:
+                content = f.read()
+                count = sum(1 for line in content.splitlines() if line.strip() and not line.strip().startswith('#') and len(line.split('\t')) >= 7)
+                status["valid_format"] = count > 0
+                status["youtube_cookie_count"] = count
+        except Exception:
+            pass
+    return status

@@ -1,6 +1,6 @@
 fastapi
 uvicorn[standard]
-yt-dlp @ git+https://github.com/yt-dlp/yt-dlp.git@master
+yt-dlp==2024.11.04
 google-api-python-client
 google-auth-oauthlib
 google-auth-httplib2

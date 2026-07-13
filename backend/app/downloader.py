@@ -1,73 +1,142 @@
 import os
 import re
 import yt_dlp
+import logging
+from pathlib import Path
+from typing import Optional, Any
 from app.config import CACHE_DIR, DOWNLOADS_DIR, COOKIES_FILE
+from app.errors import (
+    DownloaderError,
+    InvalidURLError,
+    VideoUnavailableError,
+    AuthenticationRequiredError,
+    FormatNotAvailableError,
+    RateLimitedError,
+    NetworkTimeoutError,
+    UnknownExtractorError
+)
 
-import yt_dlp.extractor.youtube._base
-# Monkeypatch yt_dlp to allow android_vr to use cookies, otherwise it skips it
-yt_dlp.extractor.youtube._base.INNERTUBE_CLIENTS['android_vr']['SUPPORTS_COOKIES'] = True
+logger = logging.getLogger(__name__)
 
-def get_video_info(url):
-    """Extracts metadata and list of available formats for a video."""
+def build_ydl_options(
+    *,
+    download: bool,
+    output_directory: Optional[str] = None,
+    progress_hook=None,
+    format_selector: Optional[str] = None,
+) -> dict:
+    """Builds a centralized configuration for yt-dlp."""
     ydl_opts = {
-        'nocheckcertificate': True,
-        'quiet': True,
+        'nocheckcertificate': False, # Safe default, don't disable unless necessary
+        'quiet': os.environ.get('YTDLP_QUIET', 'true').lower() == 'true',
         'no_warnings': True,
-        'extract_flat': 'in_playlist',
-        'extractor_args': {
-            'youtube': ['player_client=android_vr']
+        'restrictfilenames': True,
+        'windowsfilenames': True,
+        'retries': 3,
+        'fragment_retries': 3,
+        'socket_timeout': 30,
+        'extractor_args': {},
+        'http_headers': {
+            'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36'
         }
     }
-    if COOKIES_FILE.exists():
-        ydl_opts['cookiefile'] = str(COOKIES_FILE)
     
-    with yt_dlp.YoutubeDL(ydl_opts) as ydl:
-        try:
-            info = ydl.extract_info(url, download=False)
-        except Exception as e:
-            raise Exception(f"Failed to fetch video details: {str(e)}")
+    # Configure clients
+    clients_env = os.environ.get('YTDLP_PLAYER_CLIENTS', '').strip()
+    if clients_env:
+        ydl_opts['extractor_args']['youtube'] = [f"player_client={clients_env}"]
         
-        # If it's a playlist
-        if 'entries' in info:
-            # We got a playlist
-            playlist_info = {
-                'id': info.get('id'),
-                'title': info.get('title'),
-                'type': 'playlist',
-                'video_count': len(info.get('entries', [])),
-                'videos': []
-            }
-            for entry in info.get('entries', []):
-                if entry:
-                    playlist_info['videos'].append({
-                        'id': entry.get('id'),
-                        'title': entry.get('title'),
-                        'url': f"https://www.youtube.com/watch?v={entry.get('id')}",
-                        'duration': entry.get('duration'),
-                        'thumbnail': entry.get('thumbnail') or (entry.get('thumbnails')[0]['url'] if entry.get('thumbnails') else None)
-                    })
-            return playlist_info
-        
-        # It's a single video
-        return parse_single_video_info(info)
+    if not ydl_opts['extractor_args']:
+        del ydl_opts['extractor_args']
 
-def parse_single_video_info(info):
+    # Cookies
+    use_cookies = os.environ.get('YTDLP_USE_COOKIES', 'false').lower() == 'true'
+    if use_cookies and COOKIES_FILE.exists():
+        ydl_opts['cookiefile'] = str(COOKIES_FILE)
+        
+    if not download:
+        ydl_opts['extract_flat'] = 'in_playlist'
+    else:
+        if output_directory:
+            ydl_opts['outtmpl'] = os.path.join(output_directory, '%(title)s.%(ext)s')
+        if format_selector:
+            ydl_opts['format'] = format_selector
+        
+        if progress_hook:
+            ydl_opts['progress_hooks'] = [progress_hook]
+
+    return ydl_opts
+
+def map_yt_dlp_exception(e: Exception) -> Exception:
+    """Maps yt-dlp exceptions to custom API errors."""
+    msg = str(e).lower()
+    if "sign in" in msg or "authentication" in msg:
+        return AuthenticationRequiredError(str(e))
+    elif "private video" in msg or "unavailable" in msg or "geo-restricted" in msg or "drm" in msg:
+        return VideoUnavailableError(str(e))
+    elif "requested format is not available" in msg:
+        return FormatNotAvailableError(str(e))
+    elif "rate limit" in msg or "captcha" in msg or "429" in msg:
+        return RateLimitedError(str(e))
+    elif "invalid" in msg or "unsupported" in msg:
+        return InvalidURLError(str(e))
+    elif "timeout" in msg:
+        return NetworkTimeoutError(str(e))
+    else:
+        return UnknownExtractorError(str(e))
+
+def get_video_info(url: str) -> dict:
+    """Extracts metadata and list of available formats for a video."""
+    logger.info(f"Extracting metadata for URL: {url}")
+    ydl_opts = build_ydl_options(download=False)
+    
+    try:
+        with yt_dlp.YoutubeDL(ydl_opts) as ydl:
+            info = ydl.extract_info(url, download=False)
+            
+            # If it's a playlist
+            if 'entries' in info:
+                playlist_info = {
+                    'id': info.get('id'),
+                    'title': info.get('title'),
+                    'type': 'playlist',
+                    'video_count': len(info.get('entries', [])),
+                    'videos': []
+                }
+                for entry in info.get('entries', []):
+                    if entry:
+                        playlist_info['videos'].append({
+                            'id': entry.get('id'),
+                            'title': entry.get('title'),
+                            'url': f"https://www.youtube.com/watch?v={entry.get('id')}",
+                            'duration': entry.get('duration'),
+                            'thumbnail': entry.get('thumbnail') or (entry.get('thumbnails')[0]['url'] if entry.get('thumbnails') else None)
+                        })
+                return playlist_info
+            
+            # It's a single video
+            return parse_single_video_info(info)
+    except yt_dlp.utils.DownloadError as e:
+        logger.error(f"Download error during metadata extraction: {str(e)}")
+        raise map_yt_dlp_exception(e)
+    except Exception as e:
+        logger.error(f"Unexpected error during metadata extraction: {str(e)}")
+        raise map_yt_dlp_exception(e)
+
+def parse_single_video_info(info: dict) -> dict:
     """Helper to parse a single video info dict into clean client-friendly formats."""
     # Find best audio stream size to add to video-only streams
     best_audio_size = 0
     audio_formats = [f for f in info.get('formats', []) if f.get('vcodec') == 'none' and f.get('acodec') != 'none']
     if audio_formats:
-        # Find one with filesize or filesize_approx
         audio_sizes = [f.get('filesize') or f.get('filesize_approx') or 0 for f in audio_formats]
         best_audio_size = max(audio_sizes) if audio_sizes else 0
         if best_audio_size == 0:
-            # Guess based on bitrate (e.g. 128kbps * duration)
             duration = info.get('duration') or 0
             best_audio_size = int((128 * 1024 / 8) * duration)
 
     formats_by_resolution = {}
     
-    # Process formats
     for f in info.get('formats', []):
         vcodec = f.get('vcodec', 'none')
         acodec = f.get('acodec', 'none')
@@ -77,109 +146,90 @@ def parse_single_video_info(info):
         if vcodec != 'none' and height:
             res_key = f"{height}p"
             
-            # Check size
             size = f.get('filesize') or f.get('filesize_approx')
             if size:
-                # If separate video-only, add best audio size since we will merge them
                 if acodec == 'none':
                     size += best_audio_size
             else:
-                # Approximate size based on bitrate
-                bitrate = f.get('tbr') or 0  # kbps
+                bitrate = f.get('tbr') or 0  
                 duration = info.get('duration') or 0
                 if bitrate > 0 and duration > 0:
                     size = int((bitrate * 1000 / 8) * duration)
                 else:
                     size = 0
 
-            # We prefer MP4 containers or higher bitrates, let's keep the best one per resolution
             existing = formats_by_resolution.get(res_key)
             if not existing or (size and existing.get('size', 0) < size):
                 formats_by_resolution[res_key] = {
                     'format_id': f.get('format_id'),
                     'resolution': res_key,
-                    'height': height,
-                    'ext': 'mp4' if f.get('ext') == 'mp4' else f.get('ext', 'mp4'),
                     'size': size,
-                    'is_dash': acodec == 'none' # Requires merging
+                    'ext': f.get('ext'),
+                    'vcodec': vcodec,
+                    'acodec': acodec
                 }
-
-    # Audio formats
-    audio_options = []
-    # Add a standard high-quality MP3 choice (will convert best audio to MP3)
-    best_audio = None
-    best_audio_fs = 0
-    for af in audio_formats:
-        fs = af.get('filesize') or af.get('filesize_approx') or 0
-        if fs > best_audio_fs:
-            best_audio_fs = fs
-            best_audio = af
-
-    if best_audio:
-        for quality in [320, 256, 128, 64]:
-            audio_options.append({
-                'format_id': 'bestaudio/best',
-                'resolution': f'MP3 ({quality}k)',
-                'ext': 'mp3',
-                'size': int((quality * 1024 / 8) * (info.get('duration') or 0)),
-                'is_audio': True
-            })
-        # Add M4A direct if available
-        m4a_audios = [af for af in audio_formats if af.get('ext') == 'm4a']
-        if m4a_audios:
-            m4a_best = m4a_audios[0]
-            m4a_size = m4a_best.get('filesize') or m4a_best.get('filesize_approx') or 0
-            audio_options.append({
-                'format_id': m4a_best.get('format_id'),
-                'resolution': 'M4A (Direct)',
-                'ext': 'm4a',
-                'size': m4a_size or int((128 * 1024 / 8) * (info.get('duration') or 0)),
-                'is_audio': True
-            })
-
-    # Sort video resolutions descending (e.g. 1080p, 720p...)
-    sorted_videos = sorted(
-        formats_by_resolution.values(),
-        key=lambda x: x['height'],
+                
+    # Format the list for the client
+    available_formats = []
+    
+    # Sort resolutions (highest first)
+    sorted_res = sorted(
+        formats_by_resolution.items(), 
+        key=lambda x: int(x[0].replace('p', '')) if x[0].replace('p', '').isdigit() else 0,
         reverse=True
     )
     
+    for res, data in sorted_res:
+        formatted_size = "Unknown"
+        if data['size']:
+            mb = data['size'] / (1024 * 1024)
+            formatted_size = f"{mb:.1f} MB"
+            
+        available_formats.append({
+            'resolution': res,
+            'size': formatted_size,
+            'format_id': data['format_id']
+        })
+        
+    # Also add MP3 format option explicitly
+    available_formats.append({
+        'resolution': 'MP3 (Audio)',
+        'size': f"~{int(best_audio_size / (1024*1024))} MB" if best_audio_size else "Unknown",
+        'format_id': 'bestaudio'
+    })
+
     return {
         'id': info.get('id'),
         'title': info.get('title'),
-        'type': 'video',
+        'thumbnail': info.get('thumbnail'),
         'duration': info.get('duration'),
-        'thumbnail': info.get('thumbnail') or (info.get('thumbnails')[0]['url'] if info.get('thumbnails') else None),
-        'formats': sorted_videos + audio_options
+        'formats': available_formats,
+        'type': 'video'
     }
 
-def download_video(url, format_id, ext, resolution, on_progress_callback=None, target_dir=None):
-    """
-    Downloads a video from YouTube using yt-dlp.
-    If separate audio and video are chosen, automatically merges them using ffmpeg.
-    """
-    target_path = target_dir or str(DOWNLOADS_DIR)
+def download_video(url: str, resolution: str, target_path: str, on_progress_callback=None) -> str:
+    """Downloads a video matching the requested resolution to target_path."""
+    logger.info(f"Starting download for {url} at resolution {resolution}")
     
-    # Progress hook wrapper
     def hook(d):
-        if d['status'] == 'downloading':
-            total = d.get('total_bytes') or d.get('total_bytes_estimate') or 0
-            downloaded = d.get('downloaded_bytes') or 0
-            speed = d.get('speed') or 0
-            eta = d.get('eta') or 0
-            
-            progress = int((downloaded / total) * 100) if total > 0 else 0
-            if on_progress_callback:
+        if on_progress_callback:
+            if d['status'] == 'downloading':
+                percent_str = d.get('_percent_str', '0%').replace('\x1b[0;94m', '').replace('\x1b[0m', '').strip()
+                try:
+                    percent = float(percent_str.replace('%', ''))
+                except:
+                    percent = 0.0
+                
+                speed_str = d.get('_speed_str', '0KiB/s').replace('\x1b[0;92m', '').replace('\x1b[0m', '').strip()
+                eta_str = d.get('_eta_str', '0s').replace('\x1b[0;93m', '').replace('\x1b[0m', '').strip()
+                
                 on_progress_callback({
                     'status': 'downloading',
-                    'progress': progress,
-                    'speed': speed,
-                    'eta': eta,
-                    'downloaded_bytes': downloaded,
-                    'total_bytes': total
+                    'progress': percent,
+                    'speed': speed_str,
+                    'eta': eta_str
                 })
-        elif d['status'] == 'finished':
-            if on_progress_callback:
+            elif d['status'] == 'finished':
                 on_progress_callback({
                     'status': 'merging',
                     'progress': 99,
@@ -187,72 +237,49 @@ def download_video(url, format_id, ext, resolution, on_progress_callback=None, t
                     'eta': 0
                 })
 
-    ydl_opts = {
-        'nocheckcertificate': True,
-        'progress_hooks': [hook],
-        'outtmpl': os.path.join(target_path, '%(title)s.%(ext)s'),
-        'no_warnings': True,
-        'quiet': True,
-        'extractor_args': {
-            'youtube': ['player_client=android_vr']
-        }
-    }
-    if COOKIES_FILE.exists():
-        ydl_opts['cookiefile'] = str(COOKIES_FILE)
-
-    # Set up format options
-    is_audio = 'mp3' in resolution.lower() or 'm4a' in resolution.lower() or ext in ['mp3', 'm4a']
+    is_audio = 'mp3' in resolution.lower() or 'm4a' in resolution.lower()
     
     if is_audio:
-        if ext == 'mp3':
-            quality = '128'
-            quality_match = re.search(r'\((\d+)k\)', resolution)
-            if quality_match:
-                quality = quality_match.group(1)
-                
-            ydl_opts.update({
-                'format': 'bestaudio/best',
-                'postprocessors': [{
-                    'key': 'FFmpegExtractAudio',
-                    'preferredcodec': 'mp3',
-                    'preferredquality': quality,
-                }],
-            })
-        else:
-            # m4a direct
-            ydl_opts.update({
-                'format': format_id if format_id != 'bestaudio/best' else 'bestaudio[ext=m4a]/best',
-            })
-    else:
-        # It's a video
-        # Height extraction from resolution string (e.g. "1080p" -> 1080)
-        height_match = re.search(r'\d+', resolution)
-        height = int(height_match.group()) if height_match else None
-        
-        if height:
-            # We download the specific height, and merge with best audio
-            # bestvideo[height=1080]+bestaudio/best[height=1080]
-            # We want to fall back to best video if height not exactly available, but capping at height
-            ydl_opts.update({
-                'format': f'bestvideo[height={height}]+bestaudio/bestvideo[height<={height}]+bestaudio/best[height<={height}]/best',
-                'merge_output_format': 'mp4',
-            })
-        else:
-            ydl_opts.update({
-                'format': 'bestvideo+bestaudio/best',
-                'merge_output_format': 'mp4',
-            })
-
-    with yt_dlp.YoutubeDL(ydl_opts) as ydl:
-        info = ydl.extract_info(url, download=True)
-        # Get the final filename path
-        filename = ydl.prepare_filename(info)
-        
-        # If we did postprocessing like converting to MP3, the extension changes
-        if is_audio and ext == 'mp3':
-            filename = os.path.splitext(filename)[0] + '.mp3'
-        elif not is_audio:
-            # Merge output format merges to mp4
-            filename = os.path.splitext(filename)[0] + '.mp4'
+        quality = '128'
+        quality_match = re.search(r'\((\d+)k\)', resolution)
+        if quality_match:
+            quality = quality_match.group(1)
             
-        return filename
+        format_selector = 'bestaudio/best'
+        postprocessors = [{
+            'key': 'FFmpegExtractAudio',
+            'preferredcodec': 'mp3',
+            'preferredquality': quality,
+        }]
+    else:
+        height = ''.join(filter(str.isdigit, resolution)) or '1080'
+        format_selector = f'bestvideo[ext=mp4][height<={height}]+bestaudio[ext=m4a]/best[ext=mp4][height<={height}]/best[height<={height}]/best'
+        postprocessors = [{
+            'key': 'FFmpegVideoConvertor',
+            'preferedformat': 'mp4',
+        }]
+        
+    ydl_opts = build_ydl_options(
+        download=True,
+        output_directory=target_path,
+        progress_hook=hook,
+        format_selector=format_selector
+    )
+    ydl_opts['postprocessors'] = postprocessors
+
+    try:
+        with yt_dlp.YoutubeDL(ydl_opts) as ydl:
+            logger.info(f"Extracting info for download: {url}")
+            info = ydl.extract_info(url, download=True)
+            # Find the downloaded file path
+            filename = ydl.prepare_filename(info)
+            if is_audio:
+                filename = os.path.splitext(filename)[0] + '.mp3'
+            else:
+                filename = os.path.splitext(filename)[0] + '.mp4'
+            
+            logger.info(f"Download completed successfully: {filename}")
+            return filename
+    except Exception as e:
+        logger.error(f"Error during video download: {str(e)}")
+        raise map_yt_dlp_exception(e)
