@@ -246,8 +246,8 @@ export default function App() {
         <div className="logo-container" style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', width: '100%' }}>
           <div className="logo-text">AuraTube<span>.</span></div>
           {/* Mobile Menu Button - Only visible on mobile */}
-          <button 
-            className="mobile-menu-btn" 
+          <button
+            className="mobile-menu-btn"
             onClick={() => setIsMobileMenuOpen(true)}
             style={{ background: 'none', border: 'none', color: 'var(--text-main)', cursor: 'pointer' }}
           >
@@ -311,14 +311,14 @@ export default function App() {
         }}>
           <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '3rem' }}>
             <div className="logo-text">AuraTube<span>.</span></div>
-            <button 
+            <button
               onClick={() => setIsMobileMenuOpen(false)}
               style={{ background: 'none', border: 'none', color: 'var(--text-main)', cursor: 'pointer' }}
             >
               <X size={28} />
             </button>
           </div>
-          
+
           <div style={{ display: 'flex', flexDirection: 'column', gap: '2rem', fontSize: '1.25rem', fontWeight: '600', color: 'var(--text-muted)' }}>
             <span style={{ cursor: 'pointer', color: 'var(--text-main)' }} onClick={() => { setIsMobileMenuOpen(false); window.scrollTo({ top: 0, behavior: 'smooth' }); }}>Home</span>
             <span style={{ cursor: 'pointer' }} onClick={() => { setIsMobileMenuOpen(false); document.getElementById('features-section')?.scrollIntoView({ behavior: 'smooth' }); }}>Features</span>
@@ -326,7 +326,7 @@ export default function App() {
             <span style={{ cursor: 'pointer' }} onClick={() => { setIsMobileMenuOpen(false); document.getElementById('about-section')?.scrollIntoView({ behavior: 'smooth' }); }}>About</span>
             <span style={{ cursor: 'pointer' }} onClick={() => { setIsMobileMenuOpen(false); document.getElementById('contact-section')?.scrollIntoView({ behavior: 'smooth' }); }}>Contact Us</span>
           </div>
-          
+
           <div style={{ marginTop: 'auto', display: 'flex', gap: '1rem', flexDirection: 'column' }}>
             <div style={{ fontSize: '0.9rem', color: 'var(--text-muted)' }}>Theme</div>
             <button
@@ -342,39 +342,39 @@ export default function App() {
       {/* Hero Section */}
       <div className="hero-section" style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '4rem', marginBottom: '6rem', alignItems: 'center' }}>
         <div>
-          <h1 className="text-display-xl" style={{ marginBottom: '1rem' }}>
+          <h1 style={{ fontSize: '4.5rem', lineHeight: '1.1', fontWeight: '800', letterSpacing: '-0.03em', color: 'var(--text-main)' }}>
             Download Video<br />& Playlists.
           </h1>
           <div style={{ display: 'flex', gap: '1.5rem', marginTop: '1.5rem' }}>
-            <a href="#privacy-policy" style={{ color: 'var(--text-muted)', fontSize: '14px', textDecoration: 'underline' }}>Privacy Policy</a>
-            <a href="#terms-of-service" style={{ color: 'var(--text-muted)', fontSize: '14px', textDecoration: 'underline' }}>Terms of Service</a>
+            <a href="#privacy-policy" style={{ color: 'var(--text-muted)', fontSize: '1rem', textDecoration: 'underline' }}>Privacy Policy</a>
+            <a href="#terms-of-service" style={{ color: 'var(--text-muted)', fontSize: '1rem', textDecoration: 'underline' }}>Terms of Service</a>
           </div>
         </div>
         <div style={{ paddingLeft: '2rem' }}>
-          <p className="text-mono-eyebrow" style={{ marginBottom: '1rem' }}>
+          <p style={{ fontSize: '0.8rem', fontWeight: '700', color: 'var(--text-muted)', letterSpacing: '0.1em', textTransform: 'uppercase', marginBottom: '1rem' }}>
             INTRO
           </p>
-          <p className="text-body-lg" style={{ marginBottom: '3rem', maxWidth: '400px' }}>
+          <p style={{ fontSize: '1.05rem', lineHeight: '1.6', color: 'var(--text-muted)', marginBottom: '3rem', maxWidth: '400px' }}>
             Seamlessly fetch media from YouTube directly to your local storage or seamlessly upload them to your Google Drive account without using your bandwidth.
           </p>
 
           <div style={{ display: 'flex', gap: '3rem', alignItems: 'flex-start' }}>
             <div>
-              <h2 className="text-display-lg" style={{ marginBottom: '0.2rem' }}>4K</h2>
-              <p style={{ fontSize: '14px', color: 'var(--text-muted)' }}>Resolution<br />supported</p>
+              <h2 style={{ fontSize: '2.5rem', color: 'var(--accent-primary)', fontWeight: '700', marginBottom: '0.2rem' }}>4K</h2>
+              <p style={{ fontSize: '0.85rem', color: 'var(--text-muted)' }}>Resolution<br />supported</p>
             </div>
-            <div 
+            <div
               style={{ cursor: !driveStatus.is_connected ? 'pointer' : 'default' }}
               onClick={() => { if (!driveStatus.is_connected) handlePillClick(); }}
             >
-              <h2 className="text-display-lg" style={{ marginBottom: '0.2rem' }}>
+              <h2 style={{ fontSize: '2.5rem', color: 'var(--accent-primary)', fontWeight: '700', marginBottom: '0.2rem' }}>
                 {driveStatus.is_connected ? (driveStatus.storage_limit ? formatStorage(driveStatus.storage_limit) : '∞') : 'Login'}
               </h2>
-              <p style={{ fontSize: '14px', color: 'var(--text-muted)' }}>Cloud<br />storage limits</p>
+              <p style={{ fontSize: '0.85rem', color: 'var(--text-muted)' }}>Cloud<br />storage limits</p>
             </div>
             <div>
-              <h2 className="text-display-lg" style={{ marginBottom: '0.2rem' }}>12K+</h2>
-              <p style={{ fontSize: '14px', color: 'var(--text-muted)' }}>Videos<br />downloaded</p>
+              <h2 style={{ fontSize: '2.5rem', color: 'var(--accent-primary)', fontWeight: '700', marginBottom: '0.2rem' }}>12K+</h2>
+              <p style={{ fontSize: '0.85rem', color: 'var(--text-muted)' }}>Videos<br />downloaded</p>
             </div>
           </div>
         </div>
@@ -602,10 +602,10 @@ export default function App() {
       </div>
 
       {/* Auth Modal Overlay */}
-      <AuthModal 
-        isOpen={isAuthOpen} 
-        onClose={() => setIsAuthOpen(false)} 
-        onSuccess={fetchUserProfile} 
+      <AuthModal
+        isOpen={isAuthOpen}
+        onClose={() => setIsAuthOpen(false)}
+        onSuccess={fetchUserProfile}
         backendUrl={BACKEND_URL}
         onGoogleLogin={handleGoogleLogin}
       />
