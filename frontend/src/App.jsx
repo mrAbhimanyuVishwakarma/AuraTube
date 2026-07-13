@@ -192,7 +192,7 @@ export default function App() {
     }
   };
 
-  const handleConnectDrive = async () => {
+  const handleGoogleLogin = async () => {
     try {
       const res = await fetch(`${BACKEND_URL}/api/drive/auth-url`);
       if (res.ok) {
@@ -205,14 +205,16 @@ export default function App() {
 
         const popup = window.open(
           data.url,
-          'Connect Google Drive',
+          'Google Sign In',
           `width=${width},height=${height},left=${left},top=${top}`
         );
 
         const messageListener = (event) => {
-          if (event.data === 'oauth-success') {
-            fetchDriveStatus();
+          if (event.data && event.data.type === 'oauth-success') {
+            localStorage.setItem('token', event.data.token);
+            fetchUser();
             window.removeEventListener('message', messageListener);
+            setIsAuthOpen(false); // Close auth modal if open
           }
         };
         window.addEventListener('message', messageListener);
@@ -220,7 +222,6 @@ export default function App() {
         const timer = setInterval(() => {
           if (popup && popup.closed) {
             clearInterval(timer);
-            fetchDriveStatus();
           }
         }, 1000);
       } else {
@@ -229,16 +230,6 @@ export default function App() {
       }
     } catch (err) {
       alert("Error getting authentication URL.");
-    }
-  };
-
-  const handlePillClick = () => {
-    if (driveStatus.is_connected) {
-      if (confirm("Disconnect Google Drive?")) {
-        handleDisconnectDrive();
-      }
-    } else {
-      handleConnectDrive();
     }
   };
 
@@ -283,34 +274,7 @@ export default function App() {
             {theme === 'light' ? <Moon size={20} /> : <Sun size={20} />}
           </button>
 
-          {/* Drive Status Pill */}
-          <div
-            onClick={handlePillClick}
-            title={driveStatus.is_connected ? "Google Drive Connected" : "Connect Google Drive"}
-            style={{
-              display: 'flex',
-              alignItems: 'center',
-              gap: '0.5rem',
-              padding: '0.4rem 0.8rem',
-              background: 'transparent',
-              border: '1px solid ' + (driveStatus.is_connected ? '#10b981' : 'var(--border-color)'),
-              borderRadius: 'var(--radius-full)',
-              fontSize: '0.8rem',
-              cursor: 'pointer',
-              whiteSpace: 'nowrap'
-            }}
-          >
-            {driveStatus.is_connected ? (
-              <span style={{ display: 'flex', alignItems: 'center', gap: '0.3rem', color: '#10b981', fontWeight: '600' }}>
-                <ShieldCheck size={14} /> Connected
-              </span>
-            ) : (
-              <span style={{ display: 'flex', alignItems: 'center', gap: '0.3rem', color: 'var(--text-muted)', whiteSpace: 'nowrap' }}>
-                <CloudLightning size={14} /> Google Drive Login
-              </span>
-            )}
-          </div>
-
+          {/* Removed Drive Status Pill */}
           {user ? (
             <div style={{ display: 'flex', alignItems: 'center', gap: '1rem' }}>
               {user.is_premium ? (
@@ -451,8 +415,7 @@ export default function App() {
             <FormatSelector
               videoData={videoData}
               onDownload={handleDownloadTrigger}
-              driveConnected={driveStatus.is_connected}
-              onConnectDrive={handleConnectDrive}
+              onDownload={handleDownloadTrigger}
               user={user}
               onOpenPricing={() => setIsPricingOpen(true)}
             />
@@ -464,8 +427,7 @@ export default function App() {
               playlistData={videoData}
               onDownload={handleDownloadTrigger}
               onPlaylistDownload={handlePlaylistDownloadTrigger}
-              driveConnected={driveStatus.is_connected}
-              onConnectDrive={handleConnectDrive}
+              onPlaylistDownload={handlePlaylistDownloadTrigger}
               user={user}
               onOpenPricing={() => setIsPricingOpen(true)}
             />
@@ -588,11 +550,12 @@ export default function App() {
       </div>
 
       {/* Auth Modal Overlay */}
-      <AuthModal
-        isOpen={isAuthOpen}
-        onClose={() => setIsAuthOpen(false)}
-        onSuccess={fetchUserProfile}
+      <AuthModal 
+        isOpen={isAuthOpen} 
+        onClose={() => setIsAuthOpen(false)} 
+        onSuccess={fetchUserProfile} 
         backendUrl={BACKEND_URL}
+        onGoogleLogin={handleGoogleLogin}
       />
 
       {/* Pricing Modal Overlay */}

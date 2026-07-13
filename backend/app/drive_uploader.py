@@ -8,7 +8,12 @@ from googleapiclient.discovery import build
 from googleapiclient.http import MediaFileUpload
 from app.config import CLIENT_SECRETS_FILE, load_settings
 
-SCOPES = ['https://www.googleapis.com/auth/drive.file']
+SCOPES = [
+    'openid',
+    'https://www.googleapis.com/auth/userinfo.email',
+    'https://www.googleapis.com/auth/userinfo.profile',
+    'https://www.googleapis.com/auth/drive.file'
+]
 
 
 def _get_redirect_uri():
@@ -96,7 +101,31 @@ def upload_to_drive(file_path, token_json: str, on_progress_callback=None):
     if not mime_type:
         mime_type = 'application/octet-stream'
 
-    file_metadata = {'name': file_name}
+    # Find or create 'AuraTube Downloads' folder
+    folder_name = 'AuraTube Downloads'
+    folder_id = None
+    
+    # Search for the folder
+    query = f"name='{folder_name}' and mimeType='application/vnd.google-apps.folder' and trashed=false"
+    results = service.files().list(q=query, spaces='drive', fields='files(id, name)').execute()
+    items = results.get('files', [])
+    
+    if not items:
+        # Create folder
+        folder_metadata = {
+            'name': folder_name,
+            'mimeType': 'application/vnd.google-apps.folder'
+        }
+        folder = service.files().create(body=folder_metadata, fields='id').execute()
+        folder_id = folder.get('id')
+    else:
+        folder_id = items[0].get('id')
+
+    file_metadata = {
+        'name': file_name,
+        'parents': [folder_id]
+    }
+    
     media = MediaFileUpload(
         file_path,
         mimetype=mime_type,

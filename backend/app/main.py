@@ -352,6 +352,7 @@ async def run_playlist_download_task(task_id: str, req: PlaylistDownloadRequest,
         temp_dir.mkdir(parents=True, exist_ok=True)
         
         total_videos = len(req.videos)
+        successful_downloads = 0
         
         # Loop to download each video
         for idx, video in enumerate(req.videos):
@@ -382,10 +383,14 @@ async def run_playlist_download_task(task_id: str, req: PlaylistDownloadRequest,
                     dl_hook, 
                     str(temp_dir)
                 )
+                successful_downloads += 1
             except Exception as e:
                 print(f"Failed to download video {video.title}: {e}")
                 pass
         
+        if successful_downloads == 0:
+            raise Exception("All videos failed to download. Check server logs (ffmpeg might be missing).")
+
         # Now zip the contents of temp_dir
         task["status"] = "merging"
         task["progress"] = 100
@@ -625,10 +630,10 @@ def check_drive_status(user: Optional[User] = Depends(get_optional_current_user)
     }
 
 @app.get("/api/drive/auth-url")
-def get_drive_auth_url(user: User = Depends(get_current_user)):
-    """Generates a Google OAuth URL. User must be logged in."""
+def get_drive_auth_url():
+    """Generates a Google OAuth URL for Sign In and Drive access."""
     try:
-        url, _ = get_auth_url(state=user.id)
+        url, _ = get_auth_url()
         return {"url": url}
     except Exception as e:
         raise HTTPException(status_code=400, detail=str(e))
@@ -643,30 +648,39 @@ def drive_oauth_callback(request: Request, db: Session = Depends(get_db)):
 
         token_json = handle_oauth_callback(full_url)
 
-        # Save the token to the user's record in DB
-        if state:
-            user = db.query(User).filter(User.id == state).first()
-            if user:
-                user.google_drive_token = token_json
-                # Fetch and cache Drive info
-                drive_email, storage_limit = fetch_drive_info(token_json)
-                user.google_drive_email = drive_email
-                user.google_drive_storage_limit = storage_limit
-                db.commit()
+        # Fetch info using the token
+        drive_email, storage_limit = fetch_drive_info(token_json)
+        if not drive_email:
+            raise Exception("Failed to retrieve email from Google")
 
-        return """
+        # Find or create user
+        user = db.query(User).filter(User.email == drive_email).first()
+        if not user:
+            user = User(email=drive_email)
+            db.add(user)
+            db.commit()
+            db.refresh(user)
+
+        user.google_drive_token = token_json
+        user.google_drive_email = drive_email
+        user.google_drive_storage_limit = storage_limit
+        db.commit()
+        
+        # Generate AuraTube JWT
+        access_token = create_access_token(data={"sub": user.email, "user_id": user.id})
+
+        return f"""
         <html>
             <body style="font-family: sans-serif; background-color: #0f0c1b; color: white; display: flex; align-items: center; justify-content: center; height: 100vh; margin: 0;">
                 <div style="text-align: center; background: rgba(255,255,255,0.05); padding: 2.5rem; border-radius: 12px; border: 1px solid rgba(255,255,255,0.1); box-shadow: 0 8px 32px 0 rgba(0, 0, 0, 0.37);">
-                    <h2 style="color: #f97316; margin-top: 0;">Google Drive Connected! ✅</h2>
-                    <p style="color: #94a3b8; font-size: 0.95rem;">Your Google Drive is now linked. You can close this tab.</p>
-                    <button onclick="window.close()" style="background: linear-gradient(135deg, #f97316, #ea580c); color: white; border: none; padding: 0.75rem 1.5rem; border-radius: 6px; font-weight: 600; cursor: pointer; margin-top: 1rem;">
-                        Close Window
-                    </button>
+                    <h2 style="color: #f97316; margin-top: 0;">Login Successful! ✅</h2>
+                    <p style="color: #94a3b8; font-size: 0.95rem;">You are now signed in and Google Drive is linked.</p>
                 </div>
                 <script>
-                    try { window.opener.postMessage("oauth-success", "*"); } catch(e) {}
-                    setTimeout(function() { window.close(); }, 1500);
+                    try {{ 
+                        window.opener.postMessage({{ type: "oauth-success", token: "{access_token}" }}, "*"); 
+                    }} catch(e) {{}}
+                    setTimeout(function() {{ window.close(); }}, 1500);
                 </script>
             </body>
         </html>
