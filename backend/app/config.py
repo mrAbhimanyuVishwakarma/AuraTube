@@ -4,7 +4,7 @@ from pathlib import Path
 from pydantic import BaseModel
 
 BASE_DIR = Path(__file__).resolve().parent.parent.parent
-BACKEND_DIR = BASE_DIR / "backend"
+BACKEND_DIR = Path(__file__).resolve().parent.parent
 DOWNLOADS_DIR = BASE_DIR / "downloads"
 CACHE_DIR = BACKEND_DIR / "cache"
 CONFIG_DIR = BACKEND_DIR / "config"
